@@ -25,6 +25,7 @@ function migrate(d: Database.Database) {
       id TEXT PRIMARY KEY,
       owner_address TEXT NOT NULL,
       title TEXT,
+      description TEXT,
       cid TEXT NOT NULL,
       name TEXT,
       mime TEXT,
@@ -47,5 +48,10 @@ function migrate(d: Database.Database) {
       FOREIGN KEY(file_id) REFERENCES files(id)
     );
   `);
+  // Ensure columns exist if DB was created before adding new fields
+  const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
+  const names = new Set(info.map((c) => c.name));
+  if (!names.has('description')) {
+    d.exec(`ALTER TABLE files ADD COLUMN description TEXT`);
+  }
 }
-

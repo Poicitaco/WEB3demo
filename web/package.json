@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:webpack": "next dev",
     "build": "next build --turbopack",
+    "build:webpack": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "clean": "node -e \"try{require('fs').rmSync('.next',{recursive:true,force:true});}catch{}; try{require('fs').rmSync('.next-internal',{recursive:true,force:true});}catch{}\"",
+    "lint": "eslint",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
@@ -15,11 +19,11 @@
     "next": "15.5.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "uuid": "^13.0.0",
-    "web3.storage": "^4.5.5"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.48.2",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",

@@ -30,9 +30,11 @@ export async function getCiphertextLocal(cid: string) {
   if (!fs.existsSync(filePath)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const stream = fs.createReadStream(filePath);
   const webStream = Readable.toWeb(stream) as ReadableStream;
+  const stat = fs.statSync(filePath);
   return new NextResponse(webStream, {
     headers: {
       'Content-Type': 'application/octet-stream',
+      'Content-Length': String(stat.size),
       'Cache-Control': 'public, max-age=31536000, immutable',
     },
   });

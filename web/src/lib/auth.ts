@@ -44,3 +44,8 @@ export async function setSessionCookie(token: string) {
     maxAge: 24 * 60 * 60,
   });
 }
+
+export async function clearSessionCookie() {
+  const c = await cookies();
+  c.set('session', '', { path: '/', maxAge: 0 });
+}

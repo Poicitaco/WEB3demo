@@ -41,14 +41,16 @@ export default function EncryptUploader() {
       const form = new FormData();
       form.append('file', blob, 'ciphertext.bin');
       form.append('name', file.name);
-      const up = await fetch('/api/storage/upload', { method: 'POST', body: form });
+      const csrfRes = await fetch('/api/csrf');
+      const { csrf } = await csrfRes.json().catch(() => ({ csrf: '' }));
+      const up = await fetch('/api/storage/upload', { method: 'POST', body: form, headers: { 'x-csrf': csrf } });
       if (!up.ok) throw new Error('Upload failed');
       const { cid } = await up.json();
 
       setStatus('Saving metadata…');
       const res = await fetch('/api/files', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf': csrf },
         body: JSON.stringify({
           title: file.name,
           cid,
