@@ -35,10 +35,10 @@ export default function RootLayout({
             <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-4">
               <div className="text-sm font-semibold tracking-wide">SecureShare</div>
               <nav className="glass px-3 py-1 rounded-full text-sm hidden sm:flex gap-4">
-                <Link href="/" className="hover:text-accent-3">Trang chủ</Link>
-                <Link href="/upload" className="hover:text-accent-3">Tải lên</Link>
-                <Link href="/download" className="hover:text-accent-3">Tải xuống</Link>
-                <Link href="/dashboard" className="hover:text-accent-3">Bảng điều khiển</Link>
+                <Link href="/" className="hover:text-accent-3">Home</Link>
+                <Link href="/upload" className="hover:text-accent-3">Upload</Link>
+                <Link href="/download" className="hover:text-accent-3">Download</Link>
+                <Link href="/dashboard" className="hover:text-accent-3">Dashboard</Link>
               </nav>
               <div className="flex items-center gap-3">
                 <NetworkIndicator />

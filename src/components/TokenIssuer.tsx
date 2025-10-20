@@ -35,30 +35,30 @@ export default function TokenIssuer() {
 
   return (
     <div className="glass p-4 space-y-4">
-      <div className="text-sm font-semibold">Tạo Mã Chia Sẻ</div>
+      <div className="text-sm font-semibold">Create Share Token</div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
         <FileSelectCombobox value={selected} onChange={setSelected} className="lg:col-span-2" autoSelectFirst />
         <div>
-          <label className="label">TTL (phút)</label>
+          <label className="label">TTL (minutes)</label>
           <div className="flex items-center gap-3">
             <input className="w-full" type="range" min={10} max={4320} step={10} value={ttl} onChange={(e) => setTtl(parseInt(e.target.value || '0', 10))} />
             <input className="input w-24" aria-label="TTL" type="number" min={10} max={4320} step={10} value={ttl} onChange={(e) => setTtl(parseInt(e.target.value || '0', 10))} />
           </div>
-          <div className="text-[11px] muted mt-1">10 phút – 3 ngày</div>
+          <div className="text-[11px] muted mt-1">10 min – 3 days</div>
         </div>
         <div>
-          <label className="label">Cấp cho (địa chỉ)</label>
+          <label className="label">Issue To (address)</label>
           <input
             className={`input ${isEth ? '' : 'border-red-500'}`}
             placeholder="Optional 0x…"
             value={issuedTo}
             onChange={(e) => setIssuedTo(e.target.value)}
           />
-          {!isEth && <div className="text-[11px] text-red-400 mt-1">Địa chỉ Ethereum không hợp lệ</div>}
+          {!isEth && <div className="text-[11px] text-red-400 mt-1">Invalid Ethereum address</div>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button className="btn-primary" disabled={disabled} onClick={issue}>Tạo Token</button>
+        <button className="btn-primary" disabled={disabled} onClick={issue}>Create Token</button>
         {token && (
           <div className="flex items-center gap-2">
             <code className="text-xs break-all">{token}</code>
@@ -68,9 +68,9 @@ export default function TokenIssuer() {
                 await navigator.clipboard.writeText(token);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1200);
-                toast.success('Đã sao chép token');
+                toast.success('Token copied');
               }}
-            >Sao chép</button>
+            >Copy</button>
             <button
               className="btn-secondary text-xs"
               onClick={async () => {
@@ -78,9 +78,9 @@ export default function TokenIssuer() {
                 await navigator.clipboard.writeText(url);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1200);
-                toast.success('Đã sao chép liên kết');
+                toast.success('Link copied');
               }}
-            >Sao chép link</button>
+            >Copy Link</button>
             {copied && <span className="text-[11px] text-cyan-300">Copied</span>}
           </div>
         )}

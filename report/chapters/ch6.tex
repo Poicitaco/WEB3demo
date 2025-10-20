@@ -1,0 +1,17 @@
+\chapter{Kiểm thử và đánh giá}
+
+\section{Tiêu chí đánh giá}
+\begin{itemize}
+  \item \textbf{Đúng chức năng}: mã hoá/giải mã chính xác; token hoạt động, TTL/thu hồi hợp lệ.
+  \item \textbf{Bảo mật}: không rò rỉ khoá; kiểm tra CSRF; từ chối token sai/hết hạn.
+  \item \textbf{Hiệu năng}: thời gian mã hoá/giải mã và tải tệp trong ngưỡng chấp nhận được.
+\end{itemize}
+
+\section{Phân tích rủi ro và giảm thiểu}
+\begin{itemize}
+  \item \textbf{IV trùng lặp}: sinh ngẫu nhiên 96‑bit; tuyệt đối không tái sử dụng IV cùng khoá.
+  \item \textbf{Passphrase yếu}: gợi ý độ mạnh, khuyến nghị tối thiểu 12 ký tự, PBKDF2 200k vòng.
+  \item \textbf{Rò rỉ khoá (chế độ demo)}: tắt \texttt{ALLOW\_RAW\_KEYS} trong sản xuất; dùng wrappedKey bắt buộc.
+  \item \textbf{Tấn công CSRF/XSRF}: header \texttt{x-csrf} + cookie cùng giá trị; kiểm tra phía server.
+\end{itemize}
+

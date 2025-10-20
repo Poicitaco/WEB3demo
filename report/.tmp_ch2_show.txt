@@ -1,0 +1,33 @@
+﻿\chapter{CÆ¡ sá»Ÿ lÃ½ thuyáº¿t}
+
+\section{LÃ½ do chá»n AESâ€‘256â€‘GCM}
+\textbf{AES} lÃ  chuáº©n má»±c cÃ´ng nghiá»‡p, Ä‘Æ°á»£c tÄƒng tá»‘c pháº§n cá»©ng vÃ  há»— trá»£ native bá»Ÿi Web Crypto API. \textbf{GCM} cung cáº¥p cáº£ báº£o máº­t \textit{bÃ­ máº­t} láº«n \textit{toÃ n váº¹n/xÃ¡c thá»±c} (AEAD). KÃ­ch thÆ°á»›c IV 96â€‘bit tiÃªu chuáº©n giÃºp hiá»‡u nÄƒng tá»‘t vÃ  Ä‘Æ¡n giáº£n khi triá»ƒn khai. Vá»›i khoÃ¡ 256â€‘bit, khÃ´ng cÃ³ táº¥n cÃ´ng thá»±c táº¿ tá»‘t hÆ¡n vÃ©t cáº¡n.
+
+\section{Tá»•ng quan AES}
+AES lÃ  mÃ£ khá»‘i kÃ­ch thÆ°á»›c 128â€‘bit, cáº¥u trÃºc SPN vá»›i cÃ¡c bÆ°á»›c \textit{SubBytes}, \textit{ShiftRows}, \textit{MixColumns}, \textit{AddRoundKey}. Sá»‘ vÃ²ng phá»¥ thuá»™c Ä‘á»™ dÃ i khoÃ¡ (14 vÃ²ng cho 256â€‘bit).
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[node distance=1.2cm]
+    \node (pt) [block] {Plaintext 128â€‘bit};
+    \node (rk0) [smallblock, below=of pt] {AddRoundKey};
+    \node (round) [smallblock, below=of rk0] {SubBytes â†’ ShiftRows â†’ MixColumns â†’ AddRoundKey};
+    \node (dots) [below=0.2cm of round] {$\times$ (Nrâˆ’1) vÃ²ng};
+    \node (final) [smallblock, below=0.2cm of dots] {SubBytes â†’ ShiftRows â†’ AddRoundKey};
+    \node (ct) [block, below=of final] {Ciphertext 128â€‘bit};
+    \draw[arrow] (pt) -- (rk0);
+    \draw[arrow] (rk0) -- (round);
+    \draw[arrow] (round) -- (dots);
+    \draw[arrow] (dots) -- (final);
+    \draw[arrow] (final) -- (ct);
+  \end{tikzpicture}
+  \caption{Cáº¥u trÃºc vÃ²ng AES (minh hoáº¡)}
+\end{figure}
+
+\section{GCM vÃ  tÃ­nh xÃ¡c thá»±c}
+GCM káº¿t há»£p CTR Ä‘á»ƒ mÃ£ hÃ³a vÃ  GHASH Ä‘á»ƒ tÃ­nh nhÃ£n xÃ¡c thá»±c (tag). Äáº§u vÃ o gá»“m khoÃ¡ bÃ­ máº­t, IV (khÃ´ng láº·p), dá»¯ liá»‡u kÃ¨m theo AAD (tuá»³ chá»n), báº£n rÃµ; Ä‘áº§u ra gá»“m báº£n mÃ£ vÃ  tag xÃ¡c thá»±c. Sai IV hoáº·c thay Ä‘á»•i dá»¯ liá»‡u khiáº¿n giáº£i mÃ£ tháº¥t báº¡i.
+
+\section{PBKDF2 vÃ  bao bá»c khoÃ¡}
+Khi ngÆ°á»i dÃ¹ng chá»n passphrase, há»‡ thá»‘ng dÃ¹ng PBKDF2â€‘HMACâ€‘SHAâ€‘256 (200k vÃ²ng) sinh khoÃ¡ dáº«n xuáº¥t Ä‘á»ƒ \textbf{bao bá»c khoÃ¡ AES} báº±ng AESâ€‘GCM (key wrapping). LÆ°u trá»¯: salt (16B), ivWrap (12B) vÃ  wrappedKey. Náº¿u á»Ÿ cháº¿ Ä‘á»™ demo, cÃ³ thá»ƒ lÆ°u khoÃ¡ dáº¡ng base64 (khÃ´ng khuyáº¿n nghá»‹ sáº£n xuáº¥t).
+
+

@@ -1,0 +1,200 @@
+﻿*** Begin Patch
+*** Update File: report/main.tex
+@@
+-%\\documentclass[14pt,a4paper]{report}
+-
+-% Vietnamese support
+-%\\usepackage[utf8]{vietnam}
+-%\\usepackage[T5]{fontenc}
+-%\\usepackage{times}
+-
+-% Page layout
+-%\\usepackage[top=2cm, bottom=2cm, left=3cm, right=2cm]{geometry}
+-%\\usepackage{setspace}
+-%\\onehalfspacing
+-
+-% Graphics and colors
+-%\\usepackage{graphicx}
+-%\\usepackage{xcolor}
+-%\\usepackage{tikz}
+-%\\usetikzlibrary{shapes.geometric, arrows, positioning, calc, shadows}
+-
+-% Tables and listings
+-%\\usepackage{tabularx}
+-%\\usepackage{booktabs}
+-%\\usepackage{listings}
+-%\\usepackage{enumitem}
+-
+-% Math and algorithms
+-%\\usepackage{amsmath}
+-%\\usepackage{algorithm}
+-%\\usepackage{algpseudocode}
+-
+-% References
+-%\\usepackage{hyperref}
+-%\\hypersetup{
+-%    colorlinks=true,
+-%    linkcolor=blue,
+-%    filecolor=magenta,      
+-%    urlcolor=cyan,
+-%}
+-
+-% Code listing style
+-%\\lstset{
+-%    basicstyle=\\\\ttfamily\\\\footnotesize,
+-%    breaklines=true,
+-%    frame=single,
+-%    numbers=left,
+-%    numberstyle=\\\\tiny,
+-%    tabsize=2,
+-%    showstringspaces=false
+-%}
+-
+-% TikZ styles
+-%\\tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=6em, text centered, rounded corners, minimum height=3em, drop shadow]
+-%\\tikzstyle{arrow} = [thick,->,>=stealth]
+-
+-%\\begin{document}
+-
+-% ============= BAOA =============
+-%\\begin{titlepage}
+-%    \\\\begin{center}
+-%        \\\\textbf{\\\\Large �?���I H��OC QU��?C GIA HA? N��~I}\\\\\\\\
+-%        \\\\textbf{\\\\Large TR�_��oNG �?���I H��OC CA\\\"NG NGH��+}
+-%        
+-%        \\\\vspace{1cm}
+-%        \\\\IfFileExists{logo.png}{\\\\includegraphics[width=3cm]{logo.png}}{}
+-%        
+-%        \\\\vspace{1cm}
+-%        {\\\\large BA?O CA?O �?��' A?N MA\\\"N H��OC}
+-%        
+-%        \\\\vspace{0.5cm}
+-%        \\\\textbf{\\\\LARGE H��+ TH��?NG CHIA S��� FILE V��sI MA� HA\\\"A CLIENT-SIDE S��� D��\\u000fNG BLOCKCHAIN}
+-%        
+-%        \\\\vspace{1.5cm}
+-%        \\\\begin{tabular}{rl}
+-%            \\\\textbf{Gi���ng viA�n h����>ng d���n:} & TS. Nguy��.n V��n A \\\\\\\\
+-%            \\\\textbf{Sinh viA�n th���c hi���n:} & Nguy��.n V��n B \\\\\\\\
+-%            \\\\textbf{MA� sinh viA�n:} & 20XXXXXX \\\\\\\\
+-%            \\\\textbf{L��>p:} & K65-CNTT \\\\\\\\
+-%        \\\\end{tabular}
+-%        
+-%        \\\\vfill
+-%        {\\\\large HA� N��Ti, thA�ng 10 n��m 2025}
+-%    \\\\end{center}
+-%\\end{titlepage}
+-
+-% ============= L��oI C���M ��N =============
+-%\\chapter*{L��oI C���M ��N}
+-%\\addcontentsline{toc}{chapter}{L��oI C���M ��N}
+-
+-%Em xin chA�n thA�nh c���m ��n TS. Nguy��.n V��n A �`A� t��-n tA�nh h����>ng d���n, ch��% b���o em trong su��`t quA� trA�nh th���c hi���n �`��\\\" A�n nA�y. Em c�cng xin c���m ��n cA�c th��\\u0015y cA' trong khoa CA'ng ngh��� ThA'ng tin �`A� truy��?n �`���t nh��_ng ki���n th��cc quA� bA�u, t���o n��?n t���ng cho em hoA�n thA�nh �`��\\\" A�n.
+-
+-%Em xin chA�n thA�nh c���m ��n!
+-
+-%\\\\vspace{1cm}
+-%\\\\hfill \\\\textit{HA� N��Ti, ngA�y ... thA�ng ... n��m 2025}
+-
+-%\\\\hfill \\\\textit{Sinh viA�n th���c hi���n}
+-
+-% ============= M��\\u000fC L��\\u000fC =============
+-%\\\\tableofcontents
+-%\\\\listoffigures
+-%\\\\listoftables
+-
+-% ============= DANH M��\\u000fC CH��r VI��_T T��rT =============
+-%\\\\chapter*{DANH M��\\u000fC CH��r VI��_T T��rT}
+-%\\\\addcontentsline{toc}{chapter}{DANH M��\\u000fC CH��r VI��_T T��rT}
+-
+-%\\\\begin{tabular}{ll}
+-%\\\\textbf{AES} & Advanced Encryption Standard \\\\\\\\
+-%\\\\textbf{GCM} & Galois/Counter Mode \\\\\\\\
+-%\\\\textbf{IPFS} & InterPlanetary File System \\\\\\\\
+-%\\\\textbf{JWT} & JSON Web Token \\\\\\\\
+-%\\\\textbf{CID} & Content Identifier \\\\\\\\
+-%\\\\textbf{API} & Application Programming Interface \\\\\\\\
+-%\\\\textbf{HTTPS} & Hypertext Transfer Protocol Secure \\\\\\\\
+-%\\\\textbf{SQL} & Structured Query Language \\\\\\\\
+-%\\\\textbf{UUID} & Universally Unique Identifier \\\\\\\\
+-%\\\\textbf{ETH} & Ethereum \\\\\\\\
+-%\\\\end{tabular}
+-
+-% ============= CH�_��NG 1: T��\\\"NG QUAN =============
+-%\\\\chapter{T��\\\"NG QUAN V��? �?��? TA?I}
+-
+-%\\\\section{Gi��>i thi���u}
+-
+-%Trong th��?i �`���i s��` hA3a hi���n nay, vi���c chia s��� vA� l��u tr��_ d��_ li���u tr��Y nA�n ph��\\u0007 bi���n vA� c��\\u0015n thi���t. Tuy nhiA�n, cA�c gi���i phA�p l��u tr��_ t��-p trung truy��?n th��`ng nh�� Google Drive, Dropbox �`���t ra nhi��?u v���n �`��? v��? b���o m��-t vA� quy��?n riA�ng t��:
+-
+-%\\\\begin{itemize}
+-%    \\\\item D��_ li���u ng����?i dA1ng �`�����c l��u tr��_ d����>i d���ng plain-text trA�n mA�y ch��\\u0015 c��\\u0015a nhA� cung c���p d��<ch v���
+-%    \\\\item NhA� cung c���p cA3 toA�n quy��?n truy c��-p vA�o d��_ li���u ng����?i dA1ng
+-
+-%[... omitted 0 of 250 lines ...]
+-
+-%\\\\begin{figure}[h]
+-%\\\\centering
+-%\\\\begin{tikzpicture}[node distance=1.5cm]
+-%    \\\\node (input) [block] {Plaintext};
+-%    \\\\node (addrk0) [block, below of=input] {AddRoundKey};
+-%    \\\\node (round) [block, below of=addrk0, minimum height=5em] {
+-%        \\\\begin{tabular}{c}
+-%        SubBytes \\\\\\\\
+-%        ShiftRows \\\\\\\\
+-%        MixColumns \\\\\\\\
+-%        AddRoundKey
+-%        \\\\end{tabular}
+-%    };
+-%    \\\\node (rounds) [below of=round, yshift=0.5cm] {$\\\\\\times$ (Nr-1) vA�ng};
+-%    \\\\node (final) [block, below of=rounds, yshift=-0.5cm, minimum height=3em] {
+-%        \\\\begin{tabular}{c}
+-%        SubBytes \\\\\\\\
+-%        ShiftRows \\\\\\\\
+-%        AddRoundKey
+-%        \\\\end{tabular}
+-%    };
+-%    \\\\node (output) [block, below of=final] {Ciphertext};
++% Minimal main that inputs separate chapters (compile with pdfLaTeX or XeLaTeX)
++\\documentclass[14pt,a4paper]{extreport}
++\\usepackage[utf8]{inputenc}
++\\usepackage[T5]{fontenc}
++\\usepackage[vietnamese]{babel}
++\\usepackage{times}
++\\usepackage[top=2.5cm, bottom=2.5cm, left=3.5cm, right=2cm]{geometry}
++\\usepackage{setspace}\\onehalfspacing
++\\usepackage{hyperref}\\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=cyan}
++
++% Keep preamble small; load details from preamble include
++\\input{preamble}
++
++% Metadata (edit to your info)
++\\newcommand{\\TenTruong}{TRƯỜNG ………}
++\\newcommand{\\TenKhoa}{KHOA/VIỆN ………}
++\\newcommand{\\TenMon}{BÁO CÁO ĐỒ ÁN MÔN HỌC}
++\\newcommand{\\TenDeTai}{HỆ THỐNG CHIA SẺ FILE VỚI MÃ HÓA CLIENT-SIDE SỬ DỤNG BLOCKCHAIN}
++\\newcommand{\\GVHD}{TS. ……………}
++\\newcommand{\\SinhVien}{………………}
++\\newcommand{\\MSSV}{……….}
++\\newcommand{\\Lop}{……….}
++\\newcommand{\\DiaDiem}{Hà Nội}
++\\newcommand{\\Nam}{2025}
++
++\\begin{document}
++
++\\input{chapters/titlepage}
++\\input{chapters/frontmatter}
++\\tableofcontents
++\\listoffigures
++\\listoftables
++\\input{chapters/abbrev}
++\\input{chapters/ch1}
++\\input{chapters/ch2}
++\\input{chapters/ch3}
++\\input{chapters/ch4}
++\\input{chapters/ch5}
++\\input{chapters/ch6}
++\\input{chapters/ch7}
++\\input{chapters/refs}
++
++\\end{document}
+*** End Patch

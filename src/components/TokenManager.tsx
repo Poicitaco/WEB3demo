@@ -50,7 +50,7 @@ export default function TokenManager() {
 
   return (
     <div className="glass p-4 overflow-x-auto">
-      <div className="text-sm font-semibold mb-2">Mã Chia Sẻ</div>
+      <div className="text-sm font-semibold mb-2">Share Tokens</div>
       {rows.length === 0 ? (
         <div className="text-sm muted">No tokens found.</div>
       ) : (
@@ -58,10 +58,10 @@ export default function TokenManager() {
           <thead className="text-left muted">
             <tr>
               <th className="py-2 pr-3">Token</th>
-              <th className="py-2 pr-3">Tệp</th>
-              <th className="py-2 pr-3">Trạng thái</th>
-              <th className="py-2 pr-3">Hết hạn</th>
-              <th className="py-2 pr-3">Thao tác</th>
+              <th className="py-2 pr-3">File</th>
+              <th className="py-2 pr-3">Status</th>
+              <th className="py-2 pr-3">Expires</th>
+              <th className="py-2 pr-3">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -69,10 +69,10 @@ export default function TokenManager() {
               <tr key={r.token} className="border-t border-[rgba(255,255,255,0.08)]">
                 <td className="py-2 pr-3 font-mono text-xs">{r.token.slice(0, 8)}…</td>
                 <td className="py-2 pr-3">{r.title || r.name || 'file'}</td>
-                <td className="py-2 pr-3">{r.revoked ? 'Đã thu hồi' : 'Hoạt động'}</td>
+                <td className="py-2 pr-3">{r.revoked ? 'Revoked' : 'Active'}</td>
                 <td className="py-2 pr-3">{r.expires_at ? new Date(r.expires_at).toLocaleString() : '—'}</td>
                 <td className="py-2 pr-3">
-                  <button className="btn-secondary text-xs" disabled={!!r.revoked} onClick={() => revoke(r.token)}>Thu hồi</button>
+                  <button className="btn-secondary text-xs" disabled={!!r.revoked} onClick={() => revoke(r.token)}>Revoke</button>
                 </td>
               </tr>
             ))}

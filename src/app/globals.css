@@ -1,0 +1,293 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0e1a; /* deep navy */
+  --foreground: #e8ecff;
+  --accent-1: #6e69ff; /* indigo */
+  --accent-2: #9a4dff; /* purple */
+  --accent-3: #00e0ff; /* cyan */
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.12);
+  --muted: #8b96b1;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-accent-1: var(--accent-1);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+}
+
+body {
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(110, 105, 255, 0.30), transparent 60%),
+    radial-gradient(1000px 500px at 80% 0%, rgba(154, 77, 255, 0.25), transparent 70%),
+    radial-gradient(800px 400px at 50% 100%, rgba(0, 224, 255, 0.18), transparent 70%),
+    linear-gradient(180deg, #0b0e1a 0%, #0b0e1a 100%);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  min-height: 100vh;
+}
+
+/* Reusable styles */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  backdrop-filter: blur(8px);
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+  color: white;
+  border-radius: 9999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform .05s ease, filter .2s ease, box-shadow .2s ease;
+  box-shadow: 0 4px 15px rgba(110, 105, 255, 0.4);
+}
+.btn-primary:hover:not(:disabled) { 
+  filter: brightness(1.1);
+  box-shadow: 0 6px 20px rgba(110, 105, 255, 0.6);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--card-border);
+  border-radius: 9999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .05s ease, border-color .2s ease, background .2s ease;
+}
+.btn-secondary:hover:not(:disabled) { 
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.08);
+}
+.btn-secondary:active:not(:disabled) { transform: translateY(1px); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.muted { color: var(--muted); }
+
+/* Form helpers */
+.label { 
+  font-size: 12px; 
+  display: block; 
+  margin-bottom: 6px; 
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.input, .textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--foreground);
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.input::placeholder, .textarea::placeholder {
+  color: var(--muted);
+}
+
+.input:focus, .textarea:focus { 
+  outline: none; 
+  border-color: rgba(255,255,255,.35);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.1);
+}
+
+.textarea { 
+  min-height: 84px; 
+  resize: vertical; 
+  font-family: var(--font-sans);
+}
+
+.badge { 
+  font-size: 11px; 
+  padding: 4px 8px; 
+  border-radius: 9999px; 
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.06);
+  display: inline-block;
+}
+
+.spinner { 
+  width: 16px; 
+  height: 16px; 
+  border: 2px solid rgba(255,255,255,0.2); 
+  border-top-color: var(--accent-3); 
+  border-radius: 50%; 
+  animation: spin .8s linear infinite; 
+}
+
+@keyframes spin { 
+  to { transform: rotate(360deg); } 
+}
+
+/* Combobox styles */
+.combobox-trigger {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.45);
+  min-height: 44px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.combobox-trigger:hover { 
+  border-color: rgba(255,255,255,0.6); 
+  filter: brightness(1.02); 
+}
+
+.combobox-trigger:focus { 
+  outline: 2px solid var(--accent-3); 
+  outline-offset: 2px;
+  border-color: var(--accent-3);
+}
+
+.dropdown-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+  border: 1px solid rgba(255,255,255,0.28);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.combobox-search { 
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--foreground);
+}
+
+.combobox-search:focus {
+  outline: none;
+  border-color: var(--accent-3);
+  background: rgba(255,255,255,0.08);
+}
+
+.dropdown-item { 
+  padding: 8px 12px; 
+  border-radius: 10px; 
+  cursor: pointer; 
+  transition: background .15s ease;
+}
+
+.dropdown-item:hover { 
+  background: rgba(255,255,255,0.12); 
+}
+
+.dropdown-item.active { 
+  background: linear-gradient(90deg, rgba(110,105,255,0.3), rgba(0,224,255,0.3));
+  border-left: 3px solid var(--accent-3);
+}
+
+.dropdown-item .meta { 
+  color: var(--muted); 
+  font-size: 11px;
+}
+
+/* Quick filter chips */
+.chip { 
+  border: 1px solid var(--card-border); 
+  border-radius: 9999px; 
+  padding: 6px 10px; 
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .2s ease;
+  background: rgba(255,255,255,0.04);
+}
+
+.chip:hover { 
+  border-color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.08);
+}
+
+.chip.active { 
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-3)); 
+  color: #000; 
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(0, 224, 255, 0.3);
+}
+
+/* Table styles */
+table {
+  width: 100%;
+}
+
+table thead {
+  border-bottom: 2px solid var(--card-border);
+}
+
+table tbody tr {
+  transition: background .15s ease;
+}
+
+table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+table td, table th {
+  padding: 12px 8px;
+  text-align: left;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn .3s ease-out;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .label { font-size: 11px; }
+  .input, .textarea { padding: 8px 10px; font-size: 13px; }
+  .btn-primary, .btn-secondary { padding: 8px 14px; font-size: 13px; }
+}

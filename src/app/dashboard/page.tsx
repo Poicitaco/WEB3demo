@@ -22,8 +22,8 @@ export default async function DashboardPage() {
   if (!address) {
     return (
     <div className="space-y-2">
-      <h1 className="text-xl font-semibold">Bảng điều khiển</h1>
-      <p className="text-sm muted">Hãy kết nối ví để xem tệp của bạn.</p>
+      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <p className="text-sm muted">Connect your wallet to view your files.</p>
     </div>
   );
   }
@@ -32,18 +32,18 @@ export default async function DashboardPage() {
   const rows = db.prepare("SELECT id, title, name, size_bytes, created_at FROM files WHERE owner_address = ? ORDER BY created_at DESC LIMIT 200").all(address) as Row[];
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Tệp của bạn</h1>
+      <h1 className="text-xl font-semibold">Your Files</h1>
       {rows.length === 0 ? (
-        <div className="glass p-4 text-sm">Chưa có tệp nào. Hãy tải lên để bắt đầu.</div>
+        <div className="glass p-4 text-sm">No files yet. Start by uploading.</div>
       ) : (
         <div className="glass p-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left muted">
               <tr>
-                <th className="py-2 pr-3">Tiêu đề</th>
-                <th className="py-2 pr-3">Tên tệp</th>
-                <th className="py-2 pr-3">Dung lượng</th>
-                <th className="py-2 pr-3">Tạo lúc</th>
+                <th className="py-2 pr-3">Title</th>
+                <th className="py-2 pr-3">Filename</th>
+                <th className="py-2 pr-3">Size</th>
+                <th className="py-2 pr-3">Created</th>
                 <th className="py-2 pr-3">ID</th>
               </tr>
             </thead>
