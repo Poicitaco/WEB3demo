@@ -98,6 +98,8 @@ export default function Downloader() {
       }
 
       setStatus('Decrypting…');
+      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
       let raw: ArrayBuffer;
       if (meta.rawKeyBase64) {
         raw = base64ToArrayBuffer(meta.rawKeyBase64);
@@ -107,19 +109,19 @@ export default function Downloader() {
         const salt = new Uint8Array(base64ToArrayBuffer(meta.salt!));
         const ivWrap = new Uint8Array(base64ToArrayBuffer(meta.ivWrap!));
         const wrapped = base64ToArrayBuffer(meta.wrappedKey!);
-        const baseKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
-        const wrapKey = await crypto.subtle.deriveKey(
+        const baseKey = await webCrypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+        const wrapKey = await webCrypto.subtle.deriveKey(
           { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
           baseKey,
           { name: 'AES-GCM', length: 256 },
           false,
           ['decrypt']
         );
-        raw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivWrap }, wrapKey, wrapped);
+        raw = await webCrypto.subtle.decrypt({ name: 'AES-GCM', iv: ivWrap }, wrapKey, wrapped);
       }
-      const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+      const key = await webCrypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
       const iv = new Uint8Array(base64ToArrayBuffer(meta.iv));
-      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBuf.buffer);
+      const plain = await webCrypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBuf.buffer);
 
       const blob = new Blob([plain], { type: meta.mime || 'application/octet-stream' });
       const urlObj = URL.createObjectURL(blob);

@@ -20,7 +20,7 @@
   \item \textbf{Lưu trữ}: Triển khai hiện tại sử dụng lưu trữ cục bộ; scaling lên IPFS/Filecoin đòi hỏi nghiên cứu thêm.
 \end{itemize}
 
-\subsection*{Lesson Learned}
+\subsection*{Bài học rút ra}
 \begin{itemize}
   \item Lựa chọn thuật toán đúng (AES-GCM) quan trọng hơn tối ưu hóa tùy ý; tiêu chuẩn công nghiệp cung cấp độ tin cậy tốt.
   \item Quản lý khoá là phần khó nhất: cần cân nhắc kỹ cách lưu trữ, sao lưu, và khôi phục.
@@ -33,7 +33,7 @@
 
 \subsection*{Ngắn hạn (1-2 tháng)}
 \begin{enumerate}
-  \item \textbf{Bắt buộc passphrase}: Loại bỏ chế độ demo `ALLOW_RAW_KEYS`; yêu cầu PBKDF2-wrapped key bắt buộc.
+  \item \textbf{Bắt buộc passphrase}: Loại bỏ chế độ demo ALLOW\_RAW\_KEYS; yêu cầu PBKDF2-wrapped key bắt buộc.
   \item \textbf{Performance optimization}: Implement Web Worker để mã hoá/giải mã không chặn UI.
   \item \textbf{Mobile responsiveness}: Tối ưu hoá giao diện cho các thiết bị di động.
   \item \textbf{Comprehensive testing}: Thêm unit tests, integration tests, và E2E tests với Playwright.
@@ -55,7 +55,7 @@
   \item \textbf{Cross-chain compatibility}: Hỗ trợ xác thực từ các blockchain khác nhau.
 \end{enumerate}
 
-\subsection*{Chất lượng & Bảo mật}
+\subsection*{Chất lượng \& Bảo mật}
 \begin{enumerate}
   \item \textbf{Security audit}: Nhờ audit bên thứ ba cho code và cryptography.
   \item \textbf{Bug bounty program}: Mở chương trình bounty để khuyến khích researcher tìm lỗ hổng.

@@ -94,129 +94,140 @@
 \section{Sơ đồ ERD (rút gọn)}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[node distance=2.2cm]
-    \node (files) [entity] {\textbf{files}\newline id (PK)\newline owner\_address\newline title, description\newline cid, name, mime\newline size\_bytes\newline iv, salt, iv\_wrap, wrapped\_key\newline raw\_key\_base64\newline created\_at};
-    \node (tokens) [entity, right=4.8cm of files] {\textbf{tokens}\newline token (PK)\newline file\_id (FK→files.id)\newline issued\_to\_address\newline expires\_at\newline revoked\newline created\_at};
-    \draw[arrow] (files) -- node[above]{1 : N} (tokens);
-  \end{tikzpicture}
+  \resizebox{0.9\textwidth}{!}{%
+    \begin{tikzpicture}[node distance=2.2cm]
+      \node (files) [entity] {\textbf{files}\newline id (PK)\newline owner\_address\newline title, description\newline cid, name, mime\newline size\_bytes\newline iv, salt, iv\_wrap, wrapped\_key\newline raw\_key\_base64\newline created\_at};
+      \node (tokens) [entity, right=4.8cm of files] {\textbf{tokens}\newline token (PK)\newline file\_id (FK→files.id)\newline issued\_to\_address\newline expires\_at\newline revoked\newline created\_at};
+      \draw[arrow] (files) -- node[above]{1 : N} (tokens);
+    \end{tikzpicture}%
+  }
   \caption{Sơ đồ thực thể–quan hệ giữa files và tokens}
 \end{figure}
 
 \section{DFD / Threat Model tổng quát}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[node distance=1.4cm]
-    \node (cbound) [boundary, minimum width=4.6cm, minimum height=5.0cm] {};
-    \node (client) [block, text width=10.5em] at (cbound.center) {Client\\AES‑GCM, PBKDF2\\MetaMask};
-    \node (api) [block, right=5.0cm of client, text width=12em] {API/Backend\\JWT/CSRF\\SQLite};
-    \node (store) [block, below=of api, text width=12em] {Storage\\Ciphertext by CID};
-    \draw[arrow] (client.east) to[out=5,in=175] node[above,pos=0.55,yshift=6]{Sign nonce} (api.west);
-    \draw[arrow] (client.east) to[out=-10,in=185] node[below,pos=0.55,yshift=-6]{Upload ciphertext} (api.west);
-    \draw[arrow] (api.south) -- node[right,xshift=6]{PUT/GET CID} (store.north);
-    \draw[arrow,gray] (client.south east) to[out=-30,in=180] node[below,pos=0.6,yshift=-6]{Download + Decrypt} (store.west);
-    % Threat notes
-    \node[note, above=0.1cm of api] (t1) {CSRF on state-changing endpoints};
-    \node[note, right=0.3cm of store] (t2) {Token leak / replay};
-    \node[note, below=0.1cm of cbound] (t3) {IV reuse risk: 96-bit random IV per file};
-  \end{tikzpicture}
+  \resizebox{0.95\textwidth}{!}{%
+    \begin{tikzpicture}[node distance=1.4cm]
+      \node (cbound) [boundary, minimum width=4.6cm, minimum height=5.0cm] {};
+      \node (client) [block, text width=10.5em] at (cbound.center) {Client\\AES‑GCM, PBKDF2\\MetaMask};
+      \node (api) [block, right=5.0cm of client, text width=12em] {API/Backend\\JWT/CSRF\\SQLite};
+      \node (store) [block, below=of api, text width=12em] {Storage\\Ciphertext by CID};
+      \draw[arrow] (client.east) to[out=5,in=175] node[above,pos=0.55,yshift=6]{Sign nonce} (api.west);
+      \draw[arrow] (client.east) to[out=-10,in=185] node[below,pos=0.55,yshift=-6]{Upload ciphertext} (api.west);
+      \draw[arrow] (api.south) -- node[right,xshift=6]{PUT/GET CID} (store.north);
+      \draw[arrow,gray] (client.south east) to[out=-30,in=180] node[below,pos=0.6,yshift=-6]{Download + Decrypt} (store.west);
+      % Threat notes
+      \node[note, above=0.1cm of api] (t1) {CSRF on state-changing endpoints};
+      \node[note, right=0.3cm of store] (t2) {Token leak / replay};
+      \node[note, below=0.1cm of cbound] (t3) {IV reuse risk: 96-bit random IV per file};
+    \end{tikzpicture}%
+  }
   \caption{DFD và ghi chú đe doạ (CSRF, token leak, IV reuse)}
 \end{figure}
 
 \section{Bản đồ API}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[node distance=1.0cm]
-    \node (api) [block, text width=12em] {API (Next.js)};
-    \node (a1) [smallblock, above left=0.9cm and 2.6cm of api] {POST /api/auth/start};
-    \node (a2) [smallblock, above right=0.9cm and 2.6cm of api] {POST /api/auth/verify};
-    \node (a3) [smallblock, left=2.8cm of api] {POST /api/storage/upload};
-    \node (a4) [smallblock, right=2.8cm of api] {GET /api/storage/get};
-    \node (a5) [smallblock, below left=0.9cm and 2.6cm of api] {POST /api/files};
-    \node (a6) [smallblock, below=1.0cm of api] {POST /api/tokens/validate};
-    \node (a7) [smallblock, below right=0.9cm and 2.6cm of api] {POST /api/tokens/revoke};
-    \foreach \x in {a1,a2,a3,a4,a5,a6,a7} {\draw[arrow] (api) -- (\x);}  
-  \end{tikzpicture}
+  \resizebox{0.9\textwidth}{!}{%
+    \begin{tikzpicture}[node distance=1.0cm]
+      \node (api) [block, text width=12em] {API (Next.js)};
+      \node (a1) [smallblock, above left=0.9cm and 2.6cm of api] {POST /api/auth/start};
+      \node (a2) [smallblock, above right=0.9cm and 2.6cm of api] {POST /api/auth/verify};
+      \node (a3) [smallblock, left=2.8cm of api] {POST /api/storage/upload};
+      \node (a4) [smallblock, right=2.8cm of api] {GET /api/storage/get};
+      \node (a5) [smallblock, below left=0.9cm and 2.6cm of api] {POST /api/files};
+      \node (a6) [smallblock, below=1.0cm of api] {POST /api/tokens/validate};
+      \node (a7) [smallblock, below right=0.9cm and 2.6cm of api] {POST /api/tokens/revoke};
+      \foreach \x in {a1,a2,a3,a4,a5,a6,a7} {\draw[arrow] (api) -- (\x);}  
+    \end{tikzpicture}%
+  }
   \caption{Các route API chính}
 \end{figure}
 
 \section{Sequence: Đăng nhập (ký nonce)}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[x=1cm,y=1cm]
-    % Participants
-    \node (user) at (0,0) [part,text width=8em]{Người dùng};
-    \node (client) at (6,0) [part,text width=10em]{Trình duyệt / MetaMask};
-    \node (server) at (13,0) [part,text width=10.5em]{Backend (Auth API)};
-    % Lifelines
-    \draw[lifeline] (user.south) -- ++(0,-8.6);
-    \draw[lifeline] (client.south) -- ++(0,-8.6);
-    \draw[lifeline] (server.south) -- ++(0,-8.6);
-    % Messages
-    \draw[arrow] ([yshift=-0.8cm]user.south) -- node[above]{Mở ứng dụng} ([yshift=-0.8cm]client.south);
-    \draw[arrow] ([yshift=-1.8cm]client.south) -- node[above]{POST /api/auth/start} ([yshift=-1.8cm]server.south);
-    \draw[arrow] ([yshift=-2.6cm]server.south) -- node[above]{Set-Cookie: nonce} ([yshift=-2.6cm]client.south);
-    \draw[arrow] ([yshift=-3.6cm]client.south) -- node[above]{Ký thông điệp: ``Sign this nonce: n''} ([yshift=-3.6cm]user.south);
-    \draw[arrow] ([yshift=-4.6cm]user.south) -- node[above]{Trả chữ ký (signature)} ([yshift=-4.6cm]client.south);
-    \draw[arrow] ([yshift=-5.6cm]client.south) -- node[above]{POST /api/auth/verify (address, signature)} ([yshift=-5.6cm]server.south);
-    \draw[arrow] ([yshift=-6.6cm]server.south) -- node[above]{JWT session cookie, clear nonce} ([yshift=-6.6cm]client.south);
-    \draw[arrow] ([yshift=-7.6cm]client.south) -- node[above]{Đã đăng nhập} ([yshift=-7.6cm]user.south);
-  \end{tikzpicture}
+  \resizebox{1.0\textwidth}{!}{%
+    \begin{tikzpicture}[x=0.8cm,y=0.8cm]
+      % Participants
+      \node (user) at (0,0) [part,text width=8em]{Người dùng};
+      \node (client) at (6,0) [part,text width=10em]{Trình duyệt / MetaMask};
+      \node (server) at (13,0) [part,text width=10.5em]{Backend (Auth API)};
+      % Lifelines
+      \draw[lifeline] (user.south) -- ++(0,-8.6);
+      \draw[lifeline] (client.south) -- ++(0,-8.6);
+      \draw[lifeline] (server.south) -- ++(0,-8.6);
+      % Messages
+      \draw[arrow] ([yshift=-0.8cm]user.south) -- node[above]{Mở ứng dụng} ([yshift=-0.8cm]client.south);
+      \draw[arrow] ([yshift=-1.8cm]client.south) -- node[above]{POST /api/auth/start} ([yshift=-1.8cm]server.south);
+      \draw[arrow] ([yshift=-2.6cm]server.south) -- node[above]{Set-Cookie: nonce} ([yshift=-2.6cm]client.south);
+      \draw[arrow] ([yshift=-3.6cm]client.south) -- node[above]{Ký thông điệp: ``Sign this nonce: n''} ([yshift=-3.6cm]user.south);
+      \draw[arrow] ([yshift=-4.6cm]user.south) -- node[above]{Trả chữ ký (signature)} ([yshift=-4.6cm]client.south);
+      \draw[arrow] ([yshift=-5.6cm]client.south) -- node[above]{POST /api/auth/verify (address, signature)} ([yshift=-5.6cm]server.south);
+      \draw[arrow] ([yshift=-6.6cm]server.south) -- node[above]{JWT session cookie, clear nonce} ([yshift=-6.6cm]client.south);
+      \draw[arrow] ([yshift=-7.6cm]client.south) -- node[above]{Đã đăng nhập} ([yshift=-7.6cm]user.south);
+    \end{tikzpicture}%
+  }
   \caption{Sequence đăng nhập: ký nonce bằng MetaMask}
 \end{figure}
 
 \section{Sequence: Upload (mã hoá phía client)}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[x=1cm,y=1cm]
-    % Participants
-    \node (user) at (0,0) [part,text width=8em]{Người dùng};
-    \node (client) at (6,0) [part,text width=11em]{Trình duyệt (Web Crypto)};
-    \node (api) at (13,0) [part,text width=11em]{Backend API};
-    \node (store) at (19,0) [part,text width=9.5em]{Storage (CID)};
-    % Lifelines
-    \draw[lifeline] (user.south) -- ++(0,-10.4);
-    \draw[lifeline] (client.south) -- ++(0,-10.4);
-    \draw[lifeline] (api.south) -- ++(0,-10.4);
-    \draw[lifeline] (store.south) -- ++(0,-10.4);
-    % Messages
-    \draw[arrow] ([yshift=-0.9cm]user.south) -- node[above]{Chọn tệp} ([yshift=-0.9cm]client.south);
-    \draw[arrow] ([yshift=-1.9cm]client.south) -- node[above]{GenerateKey + IV; AES‑GCM Encrypt} ([yshift=-1.9cm]client.south -| client.south);
-    \draw[arrow] ([yshift=-2.9cm]client.south) -- node[above]{PBKDF2 + Wrap key (tuỳ chọn)} ([yshift=-2.9cm]client.south -| client.south);
-    \draw[arrow] ([yshift=-3.9cm]client.south) -- node[above]{GET /api/csrf} ([yshift=-3.9cm]api.south);
-    \draw[arrow] ([yshift=-4.7cm]api.south) -- node[above]{Set-Cookie: csrf} ([yshift=-4.7cm]client.south);
-    \draw[arrow] ([yshift=-5.7cm]client.south) -- node[above]{POST /api/storage/upload (ciphertext)} ([yshift=-5.7cm]api.south);
-    \draw[arrow] ([yshift=-6.5cm]api.south) -- node[above]{PUT ciphertext →} ([yshift=-6.5cm]store.south);
-    \draw[arrow] ([yshift=-7.3cm]store.south) -- node[above]{CID} ([yshift=-7.3cm]api.south);
-    \draw[arrow] ([yshift=-8.1cm]api.south) -- node[above]{\{ cid \}} ([yshift=-8.1cm]client.south);
-    \draw[arrow] ([yshift=-9.1cm]client.south) -- node[above]{POST /api/files (IV, key info, TTL)} ([yshift=-9.1cm]api.south);
-    \draw[arrow] ([yshift=-10.0cm]api.south) -- node[above]{\{ token \}} ([yshift=-10.0cm]client.south);
-  \end{tikzpicture}
+  \resizebox{1.0\textwidth}{!}{%
+    \begin{tikzpicture}[x=0.6cm,y=0.6cm]
+      % Participants
+      \node (user) at (0,0) [part,text width=7em]{User};
+      \node (client) at (5,0) [part,text width=8em]{Browser};
+      \node (api) at (10,0) [part,text width=8em]{API};
+      \node (store) at (14.5,0) [part,text width=7em]{Storage};
+      % Lifelines
+      \draw[lifeline] (user.south) -- ++(0,-10);
+      \draw[lifeline] (client.south) -- ++(0,-10);
+      \draw[lifeline] (api.south) -- ++(0,-10);
+      \draw[lifeline] (store.south) -- ++(0,-10);
+      % Messages  
+      \draw[arrow] ([yshift=-0.8cm]user.south) -- node[above,font=\tiny]{Select} ([yshift=-0.8cm]client.south);
+      \draw[arrow] ([yshift=-1.6cm]client.south) -- node[above,font=\tiny]{Encrypt} ([yshift=-1.6cm]client.south -| client.south);
+      \draw[arrow] ([yshift=-2.4cm]client.south) -- node[above,font=\tiny]{Wrap} ([yshift=-2.4cm]client.south -| client.south);
+      \draw[arrow] ([yshift=-3.2cm]client.south) -- node[above,font=\tiny]{GET csrf} ([yshift=-3.2cm]api.south);
+      \draw[arrow] ([yshift=-3.9cm]api.south) -- node[above,font=\tiny]{Cookie} ([yshift=-3.9cm]client.south);
+      \draw[arrow] ([yshift=-4.7cm]client.south) -- node[above,font=\tiny]{POST upload} ([yshift=-4.7cm]api.south);
+      \draw[arrow] ([yshift=-5.4cm]api.south) -- node[above,font=\tiny]{PUT} ([yshift=-5.4cm]store.south);
+      \draw[arrow] ([yshift=-6.1cm]store.south) -- node[above,font=\tiny]{CID} ([yshift=-6.1cm]api.south);
+      \draw[arrow] ([yshift=-6.9cm]api.south) -- node[above,font=\tiny]{OK} ([yshift=-6.9cm]client.south);
+      \draw[arrow] ([yshift=-7.7cm]client.south) -- node[above,font=\tiny]{POST files} ([yshift=-7.7cm]api.south);
+      \draw[arrow] ([yshift=-8.4cm]api.south) -- node[above,font=\tiny]{Token} ([yshift=-8.4cm]client.south);
+    \end{tikzpicture}%
+  }
   \caption{Sequence upload: mã hoá client‑side, lưu ciphertext, phát token}
 \end{figure}
 
 \section{Sequence: Download (giải mã phía client)}
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[x=1cm,y=1cm]
-    % Participants
-    \node (user) at (0,0) [part,text width=8em]{Người nhận};
-    \node (client) at (6,0) [part,text width=11em]{Trình duyệt (Web Crypto)};
-    \node (api) at (13,0) [part,text width=11em]{Backend API};
-    \node (store) at (19,0) [part,text width=9.5em]{Storage (CID)};
-    % Lifelines
-    \draw[lifeline] (user.south) -- ++(0,-10.2);
-    \draw[lifeline] (client.south) -- ++(0,-10.2);
-    \draw[lifeline] (api.south) -- ++(0,-10.2);
-    \draw[lifeline] (store.south) -- ++(0,-10.2);
-    % Messages
-    \draw[arrow] ([yshift=-0.9cm]user.south) -- node[above]{Nhập token} ([yshift=-0.9cm]client.south);
-    \draw[arrow] ([yshift=-1.9cm]client.south) -- node[above]{POST /api/tokens/validate} ([yshift=-1.9cm]api.south);
-    \draw[arrow] ([yshift=-2.9cm]api.south) -- node[above]{\{ iv, cid, (salt, ivWrap, wrappedKey)|rawKey \}} ([yshift=-2.9cm]client.south);
-    \draw[arrow] ([yshift=-3.9cm]client.south) -- node[above]{GET /api/storage/get?cid=...} ([yshift=-3.9cm]store.south);
-    \draw[arrow] ([yshift=-4.9cm]store.south) -- node[above]{ciphertext} ([yshift=-4.9cm]client.south);
-    \draw[arrow] ([yshift=-5.9cm]client.south) -- node[above]{Nếu wrapped: PBKDF2 → decrypt wrappedKey} ([yshift=-5.9cm]client.south -| client.south);
-    \draw[arrow] ([yshift=-6.9cm]client.south) -- node[above]{AES‑GCM Decrypt(ciphertext, iv, key)} ([yshift=-6.9cm]client.south -| client.south);
-    \draw[arrow] ([yshift=-7.9cm]client.south) -- node[above]{Tải file rõ} ([yshift=-7.9cm]user.south);
-  \end{tikzpicture}
+  \resizebox{1.0\textwidth}{!}{%
+    \begin{tikzpicture}[x=0.6cm,y=0.6cm]
+      % Participants
+      \node (user) at (0,0) [part,text width=7em]{Recipient};
+      \node (client) at (5,0) [part,text width=8em]{Browser};
+      \node (api) at (10,0) [part,text width=8em]{API};
+      \node (store) at (14.5,0) [part,text width=7em]{Storage};
+      % Lifelines
+      \draw[lifeline] (user.south) -- ++(0,-8.5);
+      \draw[lifeline] (client.south) -- ++(0,-8.5);
+      \draw[lifeline] (api.south) -- ++(0,-8.5);
+      \draw[lifeline] (store.south) -- ++(0,-8.5);
+      % Messages
+      \draw[arrow] ([yshift=-0.8cm]user.south) -- node[above,font=\tiny]{Enter} ([yshift=-0.8cm]client.south);
+      \draw[arrow] ([yshift=-1.6cm]client.south) -- node[above,font=\tiny]{Validate} ([yshift=-1.6cm]api.south);
+      \draw[arrow] ([yshift=-2.4cm]api.south) -- node[above,font=\tiny]{Metadata} ([yshift=-2.4cm]client.south);
+      \draw[arrow] ([yshift=-3.2cm]client.south) -- node[above,font=\tiny]{GET CID} ([yshift=-3.2cm]store.south);
+      \draw[arrow] ([yshift=-4.0cm]store.south) -- node[above,font=\tiny]{Data} ([yshift=-4.0cm]client.south);
+      \draw[arrow] ([yshift=-4.8cm]client.south) -- node[above,font=\tiny]{Decrypt} ([yshift=-4.8cm]client.south -| client.south);
+      \draw[arrow] ([yshift=-5.6cm]client.south) -- node[above,font=\tiny]{File} ([yshift=-5.6cm]user.south);
+    \end{tikzpicture}%
+  }
   \caption{Sequence download: xác thực token, tải ciphertext, giải mã trên client}
 \end{figure}

@@ -23,18 +23,24 @@ export default function EncryptUploader() {
     setStatus('Encrypting…');
     setToken('');
     try {
+      // Use globalThis.crypto for Web Crypto API (client-side only)
+      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      if (!webCrypto || !webCrypto.subtle) {
+        throw new Error('Web Crypto API not available');
+      }
+
       const plain = await file.arrayBuffer();
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+      const iv = webCrypto.getRandomValues(new Uint8Array(12));
+      const key = await webCrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
         'encrypt',
         'decrypt',
       ]);
-      const ciphertext = await crypto.subtle.encrypt(
+      const ciphertext = await webCrypto.subtle.encrypt(
         { name: 'AES-GCM', iv },
         key,
         plain
       );
-      const rawKey = await crypto.subtle.exportKey('raw', key);
+      const rawKey = await webCrypto.subtle.exportKey('raw', key);
 
       setStatus('Uploading ciphertext…');
       const blob = new Blob([ciphertext], { type: 'application/octet-stream' });

@@ -32,3 +32,46 @@
 
 % Default image path
 \graphicspath{{img/}}
+
+% Adjusting figure width to prevent cutoff
+\usepackage{adjustbox}
+
+% Make figures fill more space
+\setlength{\floatsep}{8pt}
+\setlength{\textfloatsep}{8pt}
+\setlength{\intextsep}{8pt}
+
+% Allow overfull boxes for diagrams
+\setlength{\vfuzz}{2pt}
+\setlength{\hfuzz}{2pt}
+\hbadness=10000
+\vbadness=10000
+
+% Improve tikz figure rendering
+\tikzset{every picture/.style={/tikz/line cap=round, /tikz/line join=round}}
+
+% Allow figures to extend into margins
+\usepackage{marginfix}
+
+% More aggressive figure expansion macro
+\newcommand{\widefigure}[1]{%
+  \par\medskip%
+  \noindent\makebox[\textwidth]{%
+    #1%
+  }%
+  \par\medskip%
+}
+
+% Alternative: use minipage to center and allow overflow
+\newcommand{\widediagram}[1]{%
+  \noindent
+  \begin{minipage}[c]{\textwidth}
+    \centering
+    #1
+  \end{minipage}
+}
+
+% Scale figures for better fit
+\newcommand{\scalediagram}[2]{%
+  \scalebox{#1}{#2}
+}

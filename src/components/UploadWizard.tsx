@@ -76,11 +76,17 @@ export default function UploadWizard() {
     setCid('');
     try {
       setStep(2);
+      // Use globalThis.crypto for Web Crypto API (client-side only)
+      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      if (!webCrypto || !webCrypto.subtle) {
+        throw new Error('Web Crypto API not available');
+      }
+
       const plain = await file.arrayBuffer();
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
-      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
-      const rawKey = await crypto.subtle.exportKey('raw', key);
+      const iv = webCrypto.getRandomValues(new Uint8Array(12));
+      const key = await webCrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+      const ciphertext = await webCrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
+      const rawKey = await webCrypto.subtle.exportKey('raw', key);
 
       setStatus('Uploading…');
       const blob = new Blob([ciphertext], { type: 'application/octet-stream' });
@@ -109,17 +115,19 @@ export default function UploadWizard() {
       };
       if (passphrase.trim()) {
         const enc = new TextEncoder();
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const baseKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
-        const wrapKey = await crypto.subtle.deriveKey(
+        const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+        if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
+        const salt = webCrypto.getRandomValues(new Uint8Array(16));
+        const baseKey = await webCrypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+        const wrapKey = await webCrypto.subtle.deriveKey(
           { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
           baseKey,
           { name: 'AES-GCM', length: 256 },
           true,
           ['encrypt', 'decrypt']
         );
-        const ivWrap = crypto.getRandomValues(new Uint8Array(12));
-        const wrapped = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: ivWrap }, wrapKey, rawKey);
+        const ivWrap = webCrypto.getRandomValues(new Uint8Array(12));
+        const wrapped = await webCrypto.subtle.encrypt({ name: 'AES-GCM', iv: ivWrap }, wrapKey, rawKey);
         payload = {
           ...payload,
           salt: bufToBase64(salt.buffer),

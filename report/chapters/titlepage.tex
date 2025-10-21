@@ -1,22 +1,58 @@
 \begin{titlepage}
-  \begin{center}
-    {\Large \textbf{\TenTruong} \\ \TenKhoa}\par
-    \vspace{1.0cm}
-    % Include logo if available; else draw placeholder
-    \IfFileExists{report-logo.png}{\includegraphics[width=3cm]{report-logo.png}}{\placeholder{3}{3}}
-    \vspace{1.0cm}
-    {\large \textbf{\TenMon}}\par
-    \vspace{0.6cm}
-    {\LARGE \textbf{\MakeUppercase{\TenDeTai}}}\par
-    \vspace{1.6cm}
-    \begin{tabular}{@{}rl@{}}
-      \textbf{Giảng viên hướng dẫn:} & \GVHD \\
-      \textbf{Sinh viên thực hiện:} & \SinhVien \\
-      \textbf{Mã số sinh viên:} & \MSSV \\
-      \textbf{Lớp:} & \Lop \\
-    \end{tabular}
-    \vfill
-    {\large \DiaDiem, tháng 10 năm \Nam}
-  \end{center}
+  \centering
+  \vspace*{-1cm}
+  
+  {\large\bfseries \TenTruong\\}
+  \vspace{0.2cm}
+  {\large\bfseries \TenKhoa\\}
+  
+  \vspace{0.8cm}
+  
+  % Logo
+  \IfFileExists{img/logo.jpg}%
+    {\includegraphics[width=3.5cm]{img/logo.jpg}}%
+    {}
+  
+  \vspace{0.8cm}
+  
+  {\large\bfseries \TenMon\\}
+  \vspace{0.3cm}
+  {\normalsize\bfseries \HocPhan\\}
+  \vspace{0.3cm}
+  {\normalsize \LopNhom\\}
+  
+  \vspace{0.8cm}
+  
+  {\Large\bfseries \TenDeTai\\}
+  
+  \vspace{1.2cm}
+  
+  % Thành viên nhóm table
+  {\small
+  \textbf{Thành viên nhóm}
+  
+  \vspace{0.3cm}
+  
+  \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{MSSV} & \textbf{Họ và tên} & \textbf{Nhiệm vụ} \\
+    \hline
+    23010864 & Hoàng Tiến Đạt & 11 \\
+    \hline
+    23010876 & Tô Thị Thùy Dương & 11 \\
+    \hline
+     &  &  \\
+    \hline
+  \end{tabular}
+  }
+  
+  \vspace{1cm}
+  
+  {\normalsize \textbf{GVHD: \GVHD}}
+  
+  \vfill
+  
+  {\normalsize \textbf{\DiaDiem, tháng 10 năm \Nam}}
+
 \end{titlepage}
 

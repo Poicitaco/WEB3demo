@@ -1,4 +1,4 @@
-% Main document for the report (XeLaTeX recommended on Overleaf)
+﻿% Main document for the report (XeLaTeX recommended on Overleaf)
 \documentclass[12pt,a4paper]{report}
 
 % XeLaTeX: Unicode + Vietnamese
@@ -11,22 +11,24 @@
 \setmonofont{TeX Gyre Cursor}
 
 % Layout and links
-\usepackage[top=2.5cm, bottom=2.5cm, left=3.5cm, right=2cm]{geometry}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
 \usepackage{setspace}\onehalfspacing
+\usepackage{changepage}
 \usepackage{hyperref}\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=cyan}
 
 % Shared packages/styles
 \input{preamble}
 
 % Metadata (Sửa tương ứng trước khi in)
-\newcommand{\TenTruong}{TRƯỜNG ………}
-\newcommand{\TenKhoa}{KHOA/VIỆN ………}
-\newcommand{\TenMon}{BÁO CÁO ĐỒ ÁN MÔN HỌC}
+\newcommand{\TenTruong}{TRƯỜNG ĐẠI HỌC PHENIKAA}
+\newcommand{\TenKhoa}{TRƯỜNG CÔNG NGHỆ THÔNG TIN PHENIKAA}
+\newcommand{\TenMon}{BÁO CÁO ĐỒ ÁN THỰC HIỆN NHÓM}
+\newcommand{\HocPhan}{HỌC PHẦN: BẢO MẬT AN TOÀN THÔNG TIN}
+\newcommand{\LopNhom}{Nhóm 11 - Lớp N05}
 \newcommand{\TenDeTai}{HỆ THỐNG CHIA SẺ FILE VỚI MÃ HÓA CLIENT-SIDE SỬ DỤNG BLOCKCHAIN}
-\newcommand{\GVHD}{TS. ……………}
-\newcommand{\SinhVien}{………………}
-\newcommand{\MSSV}{……….}
-\newcommand{\Lop}{……….}
+\newcommand{\GVHD}{TS. Đoàn Trung Sơn}
+\newcommand{\SinhVien}{Demo}
+\newcommand{\MSSV}{Demo}
 \newcommand{\DiaDiem}{Hà Nội}
 \newcommand{\Nam}{2025}
 
@@ -34,6 +36,7 @@
 
 \input{chapters/titlepage}
 \input{chapters/frontmatter}
+\input{chapters/scoresheet}
 \tableofcontents
 \listoffigures
 \listoftables
