@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { randomUUID } from 'node:crypto';
 import { verifyCsrf } from '@/lib/csrf';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
+import { canManageFile } from '@/lib/vaultAccess';
 
 export const runtime = 'nodejs';
 
@@ -22,8 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid recipient address' }, { status: 400 });
   }
   const db = getDb();
-  const file = db.prepare('SELECT id FROM files WHERE id = ? AND owner_address = ?').get(fileId, address) as { id: string } | undefined;
-  if (!file) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!canManageFile(db, fileId, address)) return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
   const token = randomUUID();
   const ttl = (typeof ttlMinutes === 'number' && ttlMinutes > 0 ? ttlMinutes : 24 * 60) * 60 * 1000;
   const expiresAt = new Date(Date.now() + ttl).toISOString();

@@ -21,6 +21,7 @@ export function getDb() {
 function migrate(d: Database.Database) {
   d.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS files (
       id TEXT PRIMARY KEY,
       owner_address TEXT NOT NULL,
@@ -68,6 +69,24 @@ function migrate(d: Database.Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(token) REFERENCES tokens(token)
     );
+
+    CREATE TABLE IF NOT EXISTS vaults (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      owner_address TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS vault_members (
+      vault_id TEXT NOT NULL,
+      address TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
+      added_by TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(vault_id, address),
+      FOREIGN KEY(vault_id) REFERENCES vaults(id)
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
@@ -75,4 +94,12 @@ function migrate(d: Database.Database) {
   if (!names.has('description')) {
     d.exec(`ALTER TABLE files ADD COLUMN description TEXT`);
   }
+  if (!names.has('vault_id')) {
+    d.exec(`ALTER TABLE files ADD COLUMN vault_id TEXT REFERENCES vaults(id)`);
+  }
+  d.exec(`
+    CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
+    CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);
+    CREATE INDEX IF NOT EXISTS idx_tokens_file_id ON tokens(file_id);
+  `);
 }

@@ -200,6 +200,110 @@ test.describe('Recipient-restricted E2EE sharing', () => {
   });
 });
 
+test.describe('Collaborative vault access control', () => {
+  test('enforces owner, editor, and viewer permissions', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const editor = await authenticatedRequest(baseURL);
+    const viewer = await authenticatedRequest(baseURL);
+
+    const createVault = await owner.req.post('/api/vaults', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { name: 'Security Team Vault', description: 'Role matrix test' },
+    });
+    expect(createVault.ok()).toBeTruthy();
+    const { vaultId } = await createVault.json();
+
+    for (const [memberAddress, role] of [
+      [editor.wallet.address, 'editor'],
+      [viewer.wallet.address, 'viewer'],
+    ]) {
+      const addMember = await owner.req.post(`/api/vaults/${vaultId}/members`, {
+        headers: { 'x-csrf': await csrfFor(owner.req) },
+        data: { memberAddress, role },
+      });
+      expect(addMember.ok()).toBeTruthy();
+    }
+
+    const editorManageAttempt = await editor.req.post(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(editor.req) },
+      data: { memberAddress: ethers.Wallet.createRandom().address, role: 'viewer' },
+    });
+    expect(editorManageAttempt.status()).toBe(403);
+    const ownerRoleChange = await owner.req.post(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { memberAddress: owner.wallet.address, role: 'viewer' },
+    });
+    expect(ownerRoleChange.status()).toBe(400);
+
+    const createFile = await editor.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(editor.req) },
+      data: {
+        title: 'Vault document',
+        cid: 'vault-role-test-cid',
+        fileName: 'vault.txt',
+        mime: 'text/plain',
+        sizeBytes: 10,
+        iv: Buffer.alloc(12, 5).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 6).toString('base64'),
+        vaultId,
+      },
+    });
+    expect(createFile.ok()).toBeTruthy();
+    const { fileId } = await createFile.json();
+
+    const viewerFiles = await viewer.req.get('/api/files/list');
+    expect(viewerFiles.ok()).toBeTruthy();
+    const viewerFileBody = await viewerFiles.json();
+    expect(viewerFileBody.files.some((file: { id: string }) => file.id === fileId)).toBeTruthy();
+
+    const viewerUpload = await viewer.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(viewer.req) },
+      data: {
+        title: 'Forbidden upload',
+        cid: 'forbidden-vault-cid',
+        fileName: 'forbidden.txt',
+        mime: 'text/plain',
+        sizeBytes: 10,
+        iv: Buffer.alloc(12, 7).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 8).toString('base64'),
+        vaultId,
+      },
+    });
+    expect(viewerUpload.status()).toBe(403);
+
+    const editorToken = await editor.req.post('/api/tokens/issue', {
+      headers: { 'x-csrf': await csrfFor(editor.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(editorToken.ok()).toBeTruthy();
+
+    const viewerToken = await viewer.req.post('/api/tokens/issue', {
+      headers: { 'x-csrf': await csrfFor(viewer.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(viewerToken.status()).toBe(404);
+
+    const removeEditor = await owner.req.delete(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { memberAddress: editor.wallet.address },
+    });
+    expect(removeEditor.ok()).toBeTruthy();
+    const removedEditorFiles = await editor.req.get('/api/files/list');
+    const removedEditorFileBody = await removedEditorFiles.json();
+    expect(removedEditorFileBody.files.some((file: { id: string }) => file.id === fileId)).toBeFalsy();
+    const removedEditorToken = await editor.req.post('/api/tokens/issue', {
+      headers: { 'x-csrf': await csrfFor(editor.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(removedEditorToken.status()).toBe(404);
+
+    await owner.req.dispose();
+    await editor.req.dispose();
+    await viewer.req.dispose();
+  });
+});
+
 test.describe('Upload/Download - passphrase flow', () => {
   test('encrypt, upload, save metadata, download & decrypt', async ({ page, context, baseURL }) => {
     if (!baseURL) test.skip();

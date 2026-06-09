@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { verifyCsrf } from '@/lib/csrf';
 import { isRecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
+import { canWriteVault, getVaultRole } from '@/lib/vaultAccess';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     ttlMinutes,
     recipientAddress,
     recipientEnvelope,
+    vaultId,
   } = body as {
     title?: string;
     description?: string;
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
     ttlMinutes?: number;
     recipientAddress?: string;
     recipientEnvelope?: unknown;
+    vaultId?: string;
   };
   // Basic input validation
   if (!cid || !iv) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -83,6 +86,9 @@ export async function POST(req: Request) {
   }
 
   const db = getDb();
+  if (vaultId && !canWriteVault(getVaultRole(db, vaultId, address))) {
+    return NextResponse.json({ error: 'Vault write access required' }, { status: 403 });
+  }
   const normalizedRecipient = hasRecipientEnvelope ? normalizeAddress(recipientAddress) : null;
   if (normalizedRecipient && !/^0x[a-f0-9]{40}$/.test(normalizedRecipient)) {
     return NextResponse.json({ error: 'Invalid recipient address' }, { status: 400 });
@@ -97,11 +103,11 @@ export async function POST(req: Request) {
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   const saveFile = db.transaction(() => {
     db.prepare(
-      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64, vault_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       fileId, address, titleTrim || null, description ?? null, cid, fileName ?? null,
-      mime ?? null, sizeBytes ?? null, ivBuf, saltBuf, ivWrapBuf, wrappedKeyBuf, rawKeyBase64 ?? null
+      mime ?? null, sizeBytes ?? null, ivBuf, saltBuf, ivWrapBuf, wrappedKeyBuf, rawKeyBase64 ?? null, vaultId ?? null
     );
     db.prepare(
       `INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked)

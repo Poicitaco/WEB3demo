@@ -15,9 +15,12 @@ export async function GET() {
   const rows = db.prepare(
     `SELECT t.token, t.file_id, t.issued_to_address, t.revoked, t.expires_at, t.created_at,
             f.title, f.name, f.size_bytes
-     FROM tokens t JOIN files f ON f.id = t.file_id WHERE f.owner_address = ?
+     FROM tokens t
+     JOIN files f ON f.id = t.file_id
+     LEFT JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?
+     WHERE (f.vault_id IS NULL AND f.owner_address = ?) OR m.role IN ('owner', 'editor')
      ORDER BY t.created_at DESC LIMIT 500`
-  ).all(address) as Row[];
+  ).all(address.toLowerCase(), address) as Row[];
   return NextResponse.json({ ok: true, tokens: rows });
 }
 

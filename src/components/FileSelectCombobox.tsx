@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type FileRow = { id: string; title: string | null; name: string | null; size_bytes: number | null; created_at: string };
+type FileRow = {
+  id: string; title: string | null; name: string | null; size_bytes: number | null; created_at: string;
+  vault_name?: string | null;
+};
 
 function formatBytes(n: number | null | undefined) {
   if (!n || n <= 0) return '-';

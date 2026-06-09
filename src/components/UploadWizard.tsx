@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
@@ -14,6 +14,7 @@ function bufToBase64(buf: ArrayBuffer) {
 }
 
 type Step = 1 | 2 | 3;
+type VaultOption = { id: string; name: string; role: 'owner' | 'editor' | 'viewer' };
 
 function strengthLabel(pw: string) {
   const len = pw.length;
@@ -48,9 +49,25 @@ export default function UploadWizard() {
   const [ttl, setTtl] = useState<number>(1440);
   const [passphrase, setPassphrase] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [vaultId, setVaultId] = useState('');
+  const [vaults, setVaults] = useState<VaultOption[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setVaults([]);
+      setVaultId('');
+      return;
+    }
+    fetch('/api/vaults')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.ok) setVaults((data.vaults as VaultOption[]).filter((vault) => vault.role !== 'viewer'));
+      })
+      .catch(() => setVaults([]));
+  }, [address]);
 
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -121,6 +138,7 @@ export default function UploadWizard() {
         sizeBytes: file.size,
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
+        vaultId: vaultId || undefined,
       };
       if (recipient) {
         setStatus('Encrypting key for recipient...');
@@ -278,6 +296,17 @@ export default function UploadWizard() {
             <div className="text-[11px] muted mt-1">
               When set, only this wallet can validate the token and decrypt the file key. Passphrase is ignored.
             </div>
+          </div>
+
+          <div>
+            <label className="label">Destination</label>
+            <select className="input" value={vaultId} onChange={(event) => setVaultId(event.target.value)}>
+              <option value="">Personal files</option>
+              {vaults.map((vault) => (
+                <option key={vault.id} value={vault.id}>{vault.name} ({vault.role})</option>
+              ))}
+            </select>
+            <div className="text-[11px] muted mt-1">Vault owners and editors can upload encrypted files.</div>
           </div>
 
           <div className="pt-2">

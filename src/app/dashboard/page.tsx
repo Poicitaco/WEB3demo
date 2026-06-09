@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/jwt';
 import TokenManager from '@/components/TokenManager';
 import TokenIssuer from '@/components/TokenIssuer';
+import VaultManager from '@/components/VaultManager';
 
 function formatBytes(n: number | null | undefined) {
   if (!n || n <= 0) return '—';
@@ -28,8 +29,18 @@ export default async function DashboardPage() {
   );
   }
   const db = getDb();
-  type Row = { id: string; title: string | null; name: string | null; size_bytes: number | null; created_at: string };
-  const rows = db.prepare("SELECT id, title, name, size_bytes, created_at FROM files WHERE owner_address = ? ORDER BY created_at DESC LIMIT 200").all(address) as Row[];
+  type Row = {
+    id: string; title: string | null; name: string | null; size_bytes: number | null; created_at: string;
+    vault_name: string | null;
+  };
+  const rows = db.prepare(
+    `SELECT DISTINCT f.id, f.title, f.name, f.size_bytes, f.created_at, v.name AS vault_name
+     FROM files f
+     LEFT JOIN vaults v ON v.id = f.vault_id
+     LEFT JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?
+     WHERE (f.vault_id IS NULL AND f.owner_address = ?) OR m.address IS NOT NULL
+     ORDER BY f.created_at DESC LIMIT 200`
+  ).all(address.toLowerCase(), address) as Row[];
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Your Files</h1>
@@ -43,6 +54,7 @@ export default async function DashboardPage() {
                 <th className="py-2 pr-3">Title</th>
                 <th className="py-2 pr-3">Filename</th>
                 <th className="py-2 pr-3">Size</th>
+                <th className="py-2 pr-3">Vault</th>
                 <th className="py-2 pr-3">Created</th>
                 <th className="py-2 pr-3">ID</th>
               </tr>
@@ -53,6 +65,7 @@ export default async function DashboardPage() {
                   <td className="py-2 pr-3">{r.title || '—'}</td>
                   <td className="py-2 pr-3">{r.name || 'file'}</td>
                   <td className="py-2 pr-3">{formatBytes(r.size_bytes)}</td>
+                  <td className="py-2 pr-3">{r.vault_name || 'Personal'}</td>
                   <td className="py-2 pr-3">{new Date(r.created_at).toLocaleString()}</td>
                   <td className="py-2 pr-3 font-mono text-xs">{r.id.slice(0, 8)}…</td>
                 </tr>
@@ -61,6 +74,7 @@ export default async function DashboardPage() {
           </table>
         </div>
       )}
+      <VaultManager />
       <TokenIssuer />
       <TokenManager />
     </div>
