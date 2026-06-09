@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import type { Eip1193Provider } from 'ethers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import EncryptionIdentityControl from '@/components/EncryptionIdentityControl';
 
 type EthereumProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -174,12 +175,13 @@ export default function AccountMenu() {
         <span className="text-sm">{short(address)}</span>
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-56 glass p-2 text-sm">
+        <div className="absolute right-0 mt-2 w-72 glass p-2 text-sm">
           <div className="px-2 py-1 muted">Account</div>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={copy}>Copy address</button>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={explorer}>View on explorer</button>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={switchAccount}>Switch account</button>
           <a className="block px-2 py-1 hover:text-accent-3" href="/dashboard">My files</a>
+          <EncryptionIdentityControl address={address} />
           <div className="border-t border-[rgba(255,255,255,0.12)] my-1" />
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={logout}>Sign out</button>
         </div>

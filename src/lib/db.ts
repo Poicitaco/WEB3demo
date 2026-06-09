@@ -47,6 +47,15 @@ function migrate(d: Database.Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(file_id) REFERENCES files(id)
     );
+
+    CREATE TABLE IF NOT EXISTS encryption_identities (
+      address TEXT PRIMARY KEY,
+      algorithm TEXT NOT NULL,
+      public_key_jwk TEXT NOT NULL,
+      wallet_signature TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
