@@ -6,6 +6,7 @@ import { verifyCsrf } from '@/lib/csrf';
 import { isRecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { canWriteVault, getVaultRole } from '@/lib/vaultAccess';
+import { isThresholdShareEnvelope, type ThresholdShareEnvelope } from '@/lib/thresholdBundle';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
     recipientAddress,
     recipientEnvelope,
     vaultId,
+    thresholdShares,
   } = body as {
     title?: string;
     description?: string;
@@ -47,6 +49,7 @@ export async function POST(req: Request) {
     recipientAddress?: string;
     recipientEnvelope?: unknown;
     vaultId?: string;
+    thresholdShares?: unknown;
   };
   // Basic input validation
   if (!cid || !iv) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -77,8 +80,13 @@ export async function POST(req: Request) {
   const allowRaw = process.env.ALLOW_RAW_KEYS === 'true' || process.env.NODE_ENV !== 'production';
   const hasWrapped = Boolean(saltBuf && ivWrapBuf && wrappedKeyBuf);
   const hasRaw = Boolean(rawKeyBuf);
-  if (!hasWrapped && !hasRaw && !hasRecipientEnvelope) {
+  const hasThresholdShares = Array.isArray(thresholdShares) && thresholdShares.length > 0 &&
+    thresholdShares.every(isThresholdShareEnvelope);
+  if (!hasWrapped && !hasRaw && !hasRecipientEnvelope && !hasThresholdShares) {
     return NextResponse.json({ error: 'Missing key material' }, { status: 400 });
+  }
+  if (hasThresholdShares && (hasWrapped || hasRaw || hasRecipientEnvelope)) {
+    return NextResponse.json({ error: 'Threshold protection cannot be combined with another key mode' }, { status: 400 });
   }
   if (hasRaw && !allowRaw) return NextResponse.json({ error: 'Raw key not allowed' }, { status: 400 });
   if ((recipientAddress || recipientEnvelope) && !hasRecipientEnvelope) {
@@ -88,6 +96,28 @@ export async function POST(req: Request) {
   const db = getDb();
   if (vaultId && !canWriteVault(getVaultRole(db, vaultId, address))) {
     return NextResponse.json({ error: 'Vault write access required' }, { status: 403 });
+  }
+  let validatedThresholdShares: ThresholdShareEnvelope[] = [];
+  let fileThreshold: { threshold: number; total_shares: number } | null = null;
+  if (hasThresholdShares) {
+    if (!vaultId) return NextResponse.json({ error: 'Threshold shares require a vault' }, { status: 400 });
+    const policy = db.prepare(
+      'SELECT threshold, total_shares FROM vault_threshold_policies WHERE vault_id = ? AND enabled = 1'
+    ).get(vaultId) as { threshold: number; total_shares: number } | undefined;
+    if (!policy) return NextResponse.json({ error: 'Vault threshold policy is not enabled' }, { status: 400 });
+    fileThreshold = policy;
+    validatedThresholdShares = thresholdShares as ThresholdShareEnvelope[];
+    const memberRows = db.prepare(
+      'SELECT address FROM vault_members WHERE vault_id = ? ORDER BY created_at'
+    ).all(vaultId) as Array<{ address: string }>;
+    const expected = new Set(memberRows.map((member) => member.address));
+    const received = new Set(validatedThresholdShares.map((share) => normalizeAddress(share.memberAddress)));
+    const indices = new Set(validatedThresholdShares.map((share) => share.shareIndex));
+    if (validatedThresholdShares.length !== policy.total_shares || received.size !== expected.size ||
+        indices.size !== policy.total_shares || [...indices].some((index) => index < 1 || index > policy.total_shares) ||
+        [...expected].some((member) => !received.has(member))) {
+      return NextResponse.json({ error: 'Threshold shares must cover every vault member' }, { status: 400 });
+    }
   }
   const normalizedRecipient = hasRecipientEnvelope ? normalizeAddress(recipientAddress) : null;
   if (normalizedRecipient && !/^0x[a-f0-9]{40}$/.test(normalizedRecipient)) {
@@ -127,6 +157,27 @@ export async function POST(req: Request) {
         Buffer.from(recipientEnvelope.iv, 'base64'),
         Buffer.from(recipientEnvelope.wrappedKey, 'base64')
       );
+    }
+    for (const share of validatedThresholdShares) {
+      db.prepare(
+        `INSERT INTO threshold_file_shares
+         (file_id, member_address, share_index, algorithm, ephemeral_public_key_jwk, salt, iv, wrapped_share)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        fileId,
+        normalizeAddress(share.memberAddress),
+        share.shareIndex,
+        share.envelope.algorithm,
+        JSON.stringify(share.envelope.ephemeralPublicKey),
+        Buffer.from(share.envelope.salt, 'base64'),
+        Buffer.from(share.envelope.iv, 'base64'),
+        Buffer.from(share.envelope.wrappedKey, 'base64')
+      );
+    }
+    if (fileThreshold) {
+      db.prepare(
+        'INSERT INTO threshold_files (file_id, threshold, total_shares) VALUES (?, ?, ?)'
+      ).run(fileId, fileThreshold.threshold, fileThreshold.total_shares);
     }
   });
   saveFile();

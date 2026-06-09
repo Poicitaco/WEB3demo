@@ -40,6 +40,7 @@ type Meta = {
   wrappedKey?: string;
   recipientAddress?: string;
   recipientEnvelope?: RecipientKeyEnvelope;
+  thresholdProtected?: boolean;
 };
 
 export default function Downloader() {
@@ -52,7 +53,7 @@ export default function Downloader() {
   const [progress, setProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const needsPass = useMemo(
-    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope),
+    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope && !meta.thresholdProtected),
     [meta]
   );
 
@@ -80,6 +81,10 @@ export default function Downloader() {
 
   async function downloadAndDecrypt() {
     if (!meta) return;
+    if (meta.thresholdProtected) {
+      toast.error('This file requires vault approvals. Use the dashboard approval workflow.');
+      return;
+    }
     setDownloading(true);
     setStatus('Fetching ciphertext…');
     setProgress(0);
@@ -166,7 +171,7 @@ export default function Downloader() {
         <input type="text" placeholder="Enter token" value={token} onChange={(e) => setToken(e.target.value)} className="input" />
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={validate} disabled={!token}>Validate</button>
-          <button className="btn-primary" onClick={() => { if (!meta) validate().then(downloadAndDecrypt); else downloadAndDecrypt(); }} disabled={!token || downloading}>
+          <button className="btn-primary" onClick={() => { if (!meta) validate().then(downloadAndDecrypt); else downloadAndDecrypt(); }} disabled={!token || downloading || Boolean(meta?.thresholdProtected)}>
             {downloading ? 'Working…' : 'Download & Decrypt'}
           </button>
         </div>
@@ -186,13 +191,16 @@ export default function Downloader() {
             <div className="muted">Type</div><div>{meta.mime || 'application/octet-stream'}</div>
             <div className="muted">Size</div><div>{formatBytes(meta.sizeBytes || 0)}</div>
             <div className="muted">Protection</div>
-            <div>{meta.recipientEnvelope ? 'Recipient wallet E2EE' : needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
+            <div>{meta.thresholdProtected ? 'Threshold approval required' : meta.recipientEnvelope ? 'Recipient wallet E2EE' : needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
           </div>
           {needsPass && (
             <div className="mt-3">
               <label className="label">Passphrase</label>
               <input type="password" placeholder="Enter passphrase" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} className="input" />
             </div>
+          )}
+          {meta.thresholdProtected && (
+            <div className="mt-3 text-xs text-cyan-300">Open Dashboard and create a threshold approval request for this file.</div>
           )}
         </div>
       )}

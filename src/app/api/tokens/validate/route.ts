@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     envelope_salt?: Buffer | null;
     envelope_iv?: Buffer | null;
     envelope_wrapped_key?: Buffer | null;
+    threshold_file_id?: string | null;
   };
   const row = db
     .prepare(
@@ -36,9 +37,11 @@ export async function POST(req: Request) {
               f.cid, f.iv, f.salt, f.iv_wrap, f.wrapped_key, f.raw_key_base64, f.name, f.mime, f.size_bytes,
               e.algorithm AS envelope_algorithm, e.ephemeral_public_key_jwk,
               e.salt AS envelope_salt, e.iv AS envelope_iv, e.wrapped_key AS envelope_wrapped_key
+              , tf.file_id AS threshold_file_id
        FROM tokens t
        JOIN files f ON f.id = t.file_id
        LEFT JOIN key_envelopes e ON e.token = t.token
+       LEFT JOIN threshold_files tf ON tf.file_id = f.id
        WHERE t.token = ?`
     )
     .get(token) as Row | undefined;
@@ -76,5 +79,6 @@ export async function POST(req: Request) {
     sizeBytes: row.size_bytes ?? undefined,
     recipientAddress: row.issued_to_address ? normalizeAddress(row.issued_to_address) : undefined,
     recipientEnvelope,
+    thresholdProtected: Boolean(row.threshold_file_id),
   });
 }

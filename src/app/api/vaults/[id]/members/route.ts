@@ -66,6 +66,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
        ON CONFLICT(vault_id, address) DO UPDATE SET role = excluded.role, added_by = excluded.added_by`
     ).run(id, target, role, normalizeAddress(address));
     db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+    db.prepare(
+      `UPDATE approval_requests SET status = 'cancelled'
+       WHERE status = 'pending' AND file_id IN (SELECT id FROM files WHERE vault_id = ?)`
+    ).run(id);
   })();
   return NextResponse.json({ ok: true });
 }
@@ -90,6 +94,10 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
   db.transaction(() => {
     db.prepare('DELETE FROM vault_members WHERE vault_id = ? AND address = ?').run(id, member);
     db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+    db.prepare(
+      `UPDATE approval_requests SET status = 'cancelled'
+       WHERE status = 'pending' AND file_id IN (SELECT id FROM files WHERE vault_id = ?)`
+    ).run(id);
   })();
   return NextResponse.json({ ok: true });
 }

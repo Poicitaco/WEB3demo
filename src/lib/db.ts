@@ -97,6 +97,53 @@ function migrate(d: Database.Database) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(vault_id) REFERENCES vaults(id)
     );
+
+    CREATE TABLE IF NOT EXISTS threshold_file_shares (
+      file_id TEXT NOT NULL,
+      member_address TEXT NOT NULL,
+      share_index INTEGER NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_share BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(file_id, member_address),
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS threshold_files (
+      file_id TEXT PRIMARY KEY,
+      threshold INTEGER NOT NULL,
+      total_shares INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_requests (
+      id TEXT PRIMARY KEY,
+      file_id TEXT NOT NULL,
+      requester_address TEXT NOT NULL,
+      threshold INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'expired', 'cancelled')),
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_contributions (
+      request_id TEXT NOT NULL,
+      approver_address TEXT NOT NULL,
+      share_index INTEGER NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_share BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(request_id, approver_address),
+      FOREIGN KEY(request_id) REFERENCES approval_requests(id)
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
@@ -111,5 +158,7 @@ function migrate(d: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
     CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);
     CREATE INDEX IF NOT EXISTS idx_tokens_file_id ON tokens(file_id);
+    CREATE INDEX IF NOT EXISTS idx_threshold_file_shares_member ON threshold_file_shares(member_address);
+    CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON approval_requests(requester_address);
   `);
 }

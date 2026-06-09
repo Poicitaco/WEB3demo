@@ -5,6 +5,7 @@ import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
 import { wrapFileKeyForRecipient } from '@/lib/clientRecipientEnvelope';
+import { encryptThresholdShares, splitSecret } from '@/lib/clientThresholdShares';
 
 function bufToBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
@@ -15,6 +16,10 @@ function bufToBase64(buf: ArrayBuffer) {
 
 type Step = 1 | 2 | 3;
 type VaultOption = { id: string; name: string; role: 'owner' | 'editor' | 'viewer' };
+type VaultMember = {
+  address: string;
+  encryptionIdentity: { publicKey: EncryptionPublicJwk } | null;
+};
 
 function strengthLabel(pw: string) {
   const len = pw.length;
@@ -51,6 +56,8 @@ export default function UploadWizard() {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [vaultId, setVaultId] = useState('');
   const [vaults, setVaults] = useState<VaultOption[]>([]);
+  const [vaultPolicy, setVaultPolicy] = useState<{ threshold: number; total_shares: number } | null>(null);
+  const [vaultMembers, setVaultMembers] = useState<VaultMember[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -69,6 +76,24 @@ export default function UploadWizard() {
       .catch(() => setVaults([]));
   }, [address]);
 
+  useEffect(() => {
+    if (!vaultId) {
+      setVaultPolicy(null);
+      setVaultMembers([]);
+      return;
+    }
+    Promise.all([
+      fetch(`/api/vaults/${vaultId}/threshold`).then((response) => response.json()),
+      fetch(`/api/vaults/${vaultId}/members`).then((response) => response.json()),
+    ]).then(([policyData, memberData]) => {
+      setVaultPolicy(policyData.ok ? policyData.policy : null);
+      setVaultMembers(memberData.ok ? memberData.members as VaultMember[] : []);
+    }).catch(() => {
+      setVaultPolicy(null);
+      setVaultMembers([]);
+    });
+  }, [vaultId]);
+
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const f = e.dataTransfer.files?.[0];
@@ -81,10 +106,10 @@ export default function UploadWizard() {
   const disabled = useMemo(() => {
     const titleOk = title.trim().length > 0;
     const recipientOk = /^0x[a-fA-F0-9]{40}$/.test(recipientAddress.trim());
-    const passOk = allowDemoRaw || passphrase.trim().length > 0 || recipientOk;
+    const passOk = Boolean(vaultPolicy) || allowDemoRaw || passphrase.trim().length > 0 || recipientOk;
     const connected = Boolean(address);
     return !file || !titleOk || !passOk || !connected;
-  }, [file, title, passphrase, recipientAddress, address]);
+  }, [file, title, passphrase, recipientAddress, address, vaultPolicy]);
 
   const onSubmit = async () => {
     if (!file) return;
@@ -93,7 +118,7 @@ export default function UploadWizard() {
       setStatus('Enter a valid recipient wallet address.');
       return;
     }
-    if (!allowDemoRaw && !passphrase.trim() && !recipient) {
+    if (!vaultPolicy && !allowDemoRaw && !passphrase.trim() && !recipient) {
       setStatus('Enter a passphrase or recipient wallet.');
       return;
     }
@@ -140,7 +165,28 @@ export default function UploadWizard() {
         ttlMinutes: ttl,
         vaultId: vaultId || undefined,
       };
-      if (recipient) {
+      if (vaultPolicy) {
+        if (vaultMembers.length !== vaultPolicy.total_shares || vaultMembers.some((member) => !member.encryptionIdentity)) {
+          throw new Error('Vault threshold policy members are not ready');
+        }
+        setStatus('Creating encrypted threshold shares...');
+        const shares = splitSecret(rawKey, vaultPolicy.total_shares, vaultPolicy.threshold);
+        const encryptedShares = await encryptThresholdShares(
+          shares,
+          vaultMembers.map((member) => ({
+            address: member.address,
+            publicKey: member.encryptionIdentity!.publicKey,
+          }))
+        );
+        payload = {
+          ...payload,
+          thresholdShares: encryptedShares.map((share) => ({
+            memberAddress: share.recipientAddress,
+            shareIndex: share.shareIndex,
+            envelope: share.envelope,
+          })),
+        };
+      } else if (recipient) {
         setStatus('Encrypting key for recipient...');
         const identityResponse = await fetch(`/api/identities/${encodeURIComponent(recipient)}`);
         const identityData = await identityResponse.json();
@@ -280,7 +326,7 @@ export default function UploadWizard() {
                 <span>Wraps AES key with PBKDF2 (200k) + AES-GCM.</span>
                 <span className={`badge ${strengthLabel(passphrase).className}`}>{strengthLabel(passphrase).label}</span>
               </div>
-              {!allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
+              {!vaultPolicy && !allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
             </div>
           </div>
 
@@ -307,6 +353,11 @@ export default function UploadWizard() {
               ))}
             </select>
             <div className="text-[11px] muted mt-1">Vault owners and editors can upload encrypted files.</div>
+            {vaultPolicy && (
+              <div className="text-[11px] text-cyan-300 mt-1">
+                Threshold protection enabled: {vaultPolicy.threshold} of {vaultPolicy.total_shares} approvals required.
+              </div>
+            )}
           </div>
 
           <div className="pt-2">

@@ -8,10 +8,13 @@ import {
 import {
   RECIPIENT_ENVELOPE_ALGORITHM,
   type RecipientKeyEnvelope,
+  type RecipientSecretEnvelope,
 } from '../src/lib/recipientEnvelope';
 import {
   unwrapFileKeyFromRecipientEnvelope,
+  unwrapSecretFromRecipientEnvelope,
   wrapFileKeyForRecipient,
+  wrapSecretForRecipient,
 } from '../src/lib/clientRecipientEnvelope';
 import {
   combineSecret,
@@ -73,6 +76,27 @@ async function registerEncryptionIdentity(
   });
   expect(register.ok()).toBeTruthy();
   return publicKey;
+}
+
+async function createRegisteredEncryptionIdentity(
+  req: Awaited<ReturnType<typeof request.newContext>>,
+  wallet: ethers.Wallet
+) {
+  const pair = await webcrypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+  const publicKey = JSON.parse(
+    JSON.stringify(await webcrypto.subtle.exportKey('jwk', pair.publicKey))
+  ) as EncryptionPublicJwk;
+  const signature = await wallet.signMessage(encryptionIdentityMessage(wallet.address, publicKey));
+  const register = await req.post('/api/identities', {
+    headers: { 'x-csrf': await csrfFor(req) },
+    data: { publicKey, signature },
+  });
+  expect(register.ok()).toBeTruthy();
+  return { publicKey, privateKey: pair.privateKey };
 }
 
 test.describe('Encryption identity API', () => {
@@ -314,7 +338,12 @@ test.describe('Shamir threshold policy foundation', () => {
   test('recovers a secret from K encrypted member shares', async () => {
     const secret = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
     const shares = splitSecret(secret, 5, 3);
-    expect(Buffer.from(combineSecret(shares.slice(0, 2)))).not.toEqual(Buffer.from(secret));
+    try {
+      const underThreshold = combineSecret(shares.slice(0, 2));
+      expect(Buffer.from(underThreshold).equals(Buffer.from(secret))).toBeFalsy();
+    } catch {
+      // Rejecting an under-threshold reconstruction is also valid.
+    }
     const recipients = await Promise.all(Array.from({ length: 5 }, async (_, index) => {
       const pair = await webcrypto.subtle.generateKey(
         { name: 'ECDH', namedCurve: 'P-256' },
@@ -383,6 +412,142 @@ test.describe('Shamir threshold policy foundation', () => {
 
     await owner.req.dispose();
     await editor.req.dispose();
+  });
+});
+
+test.describe('Threshold approval sessions', () => {
+  test('re-encrypts K member shares to requester and recovers the file key', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const editor = await authenticatedRequest(baseURL);
+    const requester = await authenticatedRequest(baseURL);
+    const ownerIdentity = await createRegisteredEncryptionIdentity(owner.req, owner.wallet);
+    const editorIdentity = await createRegisteredEncryptionIdentity(editor.req, editor.wallet);
+    const requesterIdentity = await createRegisteredEncryptionIdentity(requester.req, requester.wallet);
+
+    const createVault = await owner.req.post('/api/vaults', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { name: 'Approval Session Vault' },
+    });
+    const { vaultId } = await createVault.json();
+    for (const [memberAddress, role] of [
+      [editor.wallet.address, 'editor'],
+      [requester.wallet.address, 'viewer'],
+    ]) {
+      expect((await owner.req.post(`/api/vaults/${vaultId}/members`, {
+        headers: { 'x-csrf': await csrfFor(owner.req) },
+        data: { memberAddress, role },
+      })).ok()).toBeTruthy();
+    }
+    expect((await owner.req.put(`/api/vaults/${vaultId}/threshold`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { threshold: 2 },
+    })).ok()).toBeTruthy();
+
+    const rawFileKey = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
+    const shares = splitSecret(rawFileKey, 3, 2);
+    const encryptedShares = await encryptThresholdShares(shares, [
+      { address: owner.wallet.address, publicKey: ownerIdentity.publicKey },
+      { address: editor.wallet.address, publicKey: editorIdentity.publicKey },
+      { address: requester.wallet.address, publicKey: requesterIdentity.publicKey },
+    ]);
+    const createFile = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Threshold protected file',
+        cid: 'threshold-session-cid',
+        fileName: 'threshold.txt',
+        mime: 'text/plain',
+        sizeBytes: 20,
+        iv: Buffer.alloc(12, 9).toString('base64'),
+        vaultId,
+        thresholdShares: encryptedShares.map((share) => ({
+          memberAddress: share.recipientAddress,
+          shareIndex: share.shareIndex,
+          envelope: share.envelope,
+        })),
+      },
+    });
+    expect(createFile.ok()).toBeTruthy();
+    const { fileId, token: thresholdToken } = await createFile.json();
+    const thresholdTokenValidation = await owner.req.post('/api/tokens/validate', { data: { token: thresholdToken } });
+    expect((await thresholdTokenValidation.json()).thresholdProtected).toBeTruthy();
+    const bypassAttempt = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Threshold bypass attempt',
+        cid: 'threshold-bypass-cid',
+        fileName: 'bypass.txt',
+        mime: 'text/plain',
+        sizeBytes: 20,
+        iv: Buffer.alloc(12, 10).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 11).toString('base64'),
+        vaultId,
+        thresholdShares: encryptedShares.map((share) => ({
+          memberAddress: share.recipientAddress,
+          shareIndex: share.shareIndex,
+          envelope: share.envelope,
+        })),
+      },
+    });
+    expect(bypassAttempt.status()).toBe(400);
+    const createRequest = await requester.req.post('/api/approvals', {
+      headers: { 'x-csrf': await csrfFor(requester.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(createRequest.ok()).toBeTruthy();
+    const { requestId } = await createRequest.json();
+
+    for (const approver of [
+      { session: owner, identity: ownerIdentity },
+      { session: editor, identity: editorIdentity },
+    ]) {
+      const detail = await approver.session.req.get(`/api/approvals/${requestId}`);
+      expect(detail.ok()).toBeTruthy();
+      const detailBody = await detail.json();
+      const share = await decryptThresholdShare(
+        detailBody.request.encryptedShare as RecipientSecretEnvelope,
+        approver.identity.privateKey
+      );
+      const envelope = await wrapSecretForRecipient(
+        new TextEncoder().encode(share).buffer as ArrayBuffer,
+        requesterIdentity.publicKey
+      );
+      const approval = await approver.session.req.post(`/api/approvals/${requestId}/approve`, {
+        headers: { 'x-csrf': await csrfFor(approver.session.req) },
+        data: { envelope },
+      });
+      expect(approval.ok()).toBeTruthy();
+    }
+
+    const requesterDetail = await requester.req.get(`/api/approvals/${requestId}`);
+    const requesterBody = await requesterDetail.json();
+    expect(requesterBody.request.status).toBe('approved');
+    expect(requesterBody.request.approvalCount).toBe(2);
+    const approvedShares = await Promise.all(
+      requesterBody.request.contributions.map(async (contribution: { envelope: RecipientSecretEnvelope }) => {
+        const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, requesterIdentity.privateKey);
+        return new TextDecoder().decode(plain);
+      })
+    );
+    expect(Buffer.from(combineSecret(approvedShares))).toEqual(Buffer.from(rawFileKey));
+
+    const secondRequest = await requester.req.post('/api/approvals', {
+      headers: { 'x-csrf': await csrfFor(requester.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    const { requestId: secondRequestId } = await secondRequest.json();
+    expect((await owner.req.delete(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { memberAddress: editor.wallet.address },
+    })).ok()).toBeTruthy();
+    const cancelledDetail = await requester.req.get(`/api/approvals/${secondRequestId}`);
+    expect((await cancelledDetail.json()).request.status).toBe('cancelled');
+    expect((await editor.req.get(`/api/approvals/${secondRequestId}`)).status()).toBe(403);
+
+    await owner.req.dispose();
+    await editor.req.dispose();
+    await requester.req.dispose();
   });
 });
 

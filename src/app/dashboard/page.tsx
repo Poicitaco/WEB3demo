@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/jwt';
 import TokenManager from '@/components/TokenManager';
 import TokenIssuer from '@/components/TokenIssuer';
 import VaultManager from '@/components/VaultManager';
+import ApprovalManager from '@/components/ApprovalManager';
 
 function formatBytes(n: number | null | undefined) {
   if (!n || n <= 0) return '—';
@@ -75,6 +76,7 @@ export default async function DashboardPage() {
         </div>
       )}
       <VaultManager />
+      <ApprovalManager />
       <TokenIssuer />
       <TokenManager />
     </div>
