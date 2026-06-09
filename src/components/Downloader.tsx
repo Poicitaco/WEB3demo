@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/Toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { getLocalEncryptionIdentity } from '@/lib/clientEncryptionIdentity';
+import { unwrapFileKeyFromRecipientEnvelope } from '@/lib/clientRecipientEnvelope';
+import type { RecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 
 function base64ToArrayBuffer(b64: string) {
   const bin = atob(b64);
@@ -34,9 +38,12 @@ type Meta = {
   salt?: string;
   ivWrap?: string;
   wrappedKey?: string;
+  recipientAddress?: string;
+  recipientEnvelope?: RecipientKeyEnvelope;
 };
 
 export default function Downloader() {
+  const { address } = useAuth();
   const toast = useToast();
   const [token, setToken] = useState('');
   const [passphrase, setPassphrase] = useState('');
@@ -44,7 +51,10 @@ export default function Downloader() {
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
-  const needsPass = useMemo(() => Boolean(meta && !meta.rawKeyBase64), [meta]);
+  const needsPass = useMemo(
+    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope),
+    [meta]
+  );
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -101,7 +111,12 @@ export default function Downloader() {
       const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
       let raw: ArrayBuffer;
-      if (meta.rawKeyBase64) {
+      if (meta.recipientEnvelope) {
+        if (!address) throw new Error('Connect the recipient wallet to decrypt this file');
+        const identity = await getLocalEncryptionIdentity(address);
+        if (!identity) throw new Error('This device does not have the recipient private key');
+        raw = await unwrapFileKeyFromRecipientEnvelope(meta.recipientEnvelope, identity.privateKey);
+      } else if (meta.rawKeyBase64) {
         raw = base64ToArrayBuffer(meta.rawKeyBase64);
       } else {
         if (!passphrase) throw new Error('Enter passphrase to decrypt key');
@@ -170,7 +185,8 @@ export default function Downloader() {
             <div className="muted">Name</div><div>{meta.name || 'file'}</div>
             <div className="muted">Type</div><div>{meta.mime || 'application/octet-stream'}</div>
             <div className="muted">Size</div><div>{formatBytes(meta.sizeBytes || 0)}</div>
-            <div className="muted">Protection</div><div>{needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
+            <div className="muted">Protection</div>
+            <div>{meta.recipientEnvelope ? 'Recipient wallet E2EE' : needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
           </div>
           {needsPass && (
             <div className="mt-3">

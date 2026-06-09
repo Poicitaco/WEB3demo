@@ -56,6 +56,18 @@ function migrate(d: Database.Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS key_envelopes (
+      token TEXT PRIMARY KEY,
+      recipient_address TEXT NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_key BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(token) REFERENCES tokens(token)
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;

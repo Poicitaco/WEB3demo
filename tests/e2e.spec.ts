@@ -5,6 +5,14 @@ import {
   type EncryptionPublicJwk,
   encryptionIdentityMessage,
 } from '../src/lib/encryptionIdentity';
+import {
+  RECIPIENT_ENVELOPE_ALGORITHM,
+  type RecipientKeyEnvelope,
+} from '../src/lib/recipientEnvelope';
+import {
+  unwrapFileKeyFromRecipientEnvelope,
+  wrapFileKeyForRecipient,
+} from '../src/lib/clientRecipientEnvelope';
 
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
@@ -33,6 +41,32 @@ async function authenticatedRequest(baseURL: string) {
   });
   expect(verify.ok()).toBeTruthy();
   return { req, wallet };
+}
+
+async function csrfFor(req: Awaited<ReturnType<typeof request.newContext>>) {
+  const response = await req.get('/api/csrf');
+  return (await response.json()).csrf as string;
+}
+
+async function registerEncryptionIdentity(
+  req: Awaited<ReturnType<typeof request.newContext>>,
+  wallet: ethers.Wallet
+) {
+  const pair = await webcrypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveKey', 'deriveBits']
+  );
+  const publicKey = JSON.parse(
+    JSON.stringify(await webcrypto.subtle.exportKey('jwk', pair.publicKey))
+  ) as EncryptionPublicJwk;
+  const signature = await wallet.signMessage(encryptionIdentityMessage(wallet.address, publicKey));
+  const register = await req.post('/api/identities', {
+    headers: { 'x-csrf': await csrfFor(req) },
+    data: { publicKey, signature },
+  });
+  expect(register.ok()).toBeTruthy();
+  return publicKey;
 }
 
 test.describe('Encryption identity API', () => {
@@ -88,6 +122,81 @@ test.describe('Encryption identity API', () => {
     });
     expect(register.status()).toBe(403);
     await req.dispose();
+  });
+});
+
+test.describe('Recipient-restricted E2EE sharing', () => {
+  test('wraps and unwraps the same AES file key', async () => {
+    const recipient = await webcrypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: 'P-256' },
+      true,
+      ['deriveBits']
+    );
+    const publicKey = JSON.parse(
+      JSON.stringify(await webcrypto.subtle.exportKey('jwk', recipient.publicKey))
+    ) as EncryptionPublicJwk;
+    const rawFileKey = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
+
+    const envelope = await wrapFileKeyForRecipient(rawFileKey, publicKey);
+    const unwrapped = await unwrapFileKeyFromRecipientEnvelope(envelope, recipient.privateKey);
+
+    expect(Buffer.from(unwrapped)).toEqual(Buffer.from(rawFileKey));
+  });
+
+  test('only returns the key envelope to the recipient wallet session', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const recipient = await authenticatedRequest(baseURL);
+    const recipientPublicKey = await registerEncryptionIdentity(recipient.req, recipient.wallet);
+    const ephemeral = await webcrypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: 'P-256' },
+      true,
+      ['deriveBits']
+    );
+    const ephemeralPublicKey = JSON.parse(
+      JSON.stringify(await webcrypto.subtle.exportKey('jwk', ephemeral.publicKey))
+    ) as EncryptionPublicJwk;
+    const envelope: RecipientKeyEnvelope = {
+      algorithm: RECIPIENT_ENVELOPE_ALGORITHM,
+      ephemeralPublicKey,
+      salt: Buffer.alloc(16, 1).toString('base64'),
+      iv: Buffer.alloc(12, 2).toString('base64'),
+      wrappedKey: Buffer.alloc(48, 3).toString('base64'),
+    };
+    expect(recipientPublicKey.crv).toBe('P-256');
+
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Recipient only',
+        cid: 'recipient-e2ee-test-cid',
+        fileName: 'recipient.txt',
+        mime: 'text/plain',
+        sizeBytes: 12,
+        iv: Buffer.alloc(12, 4).toString('base64'),
+        recipientAddress: recipient.wallet.address,
+        recipientEnvelope: envelope,
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+    const { token } = await create.json();
+
+    const ownerValidation = await owner.req.post('/api/tokens/validate', { data: { token } });
+    expect(ownerValidation.status()).toBe(403);
+
+    const anonymous = await request.newContext({ baseURL });
+    const anonymousValidation = await anonymous.post('/api/tokens/validate', { data: { token } });
+    expect(anonymousValidation.status()).toBe(403);
+
+    const recipientValidation = await recipient.req.post('/api/tokens/validate', { data: { token } });
+    expect(recipientValidation.ok()).toBeTruthy();
+    const body = await recipientValidation.json();
+    expect(body.recipientAddress).toBe(recipient.wallet.address.toLowerCase());
+    expect(body.recipientEnvelope).toEqual(envelope);
+
+    await anonymous.dispose();
+    await owner.req.dispose();
+    await recipient.req.dispose();
   });
 });
 

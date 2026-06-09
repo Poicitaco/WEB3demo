@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
+import { wrapFileKeyForRecipient } from '@/lib/clientRecipientEnvelope';
 
 function bufToBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
@@ -45,6 +47,7 @@ export default function UploadWizard() {
   const [description, setDescription] = useState('');
   const [ttl, setTtl] = useState<number>(1440);
   const [passphrase, setPassphrase] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -60,15 +63,21 @@ export default function UploadWizard() {
 
   const disabled = useMemo(() => {
     const titleOk = title.trim().length > 0;
-    const passOk = allowDemoRaw ? true : passphrase.trim().length > 0;
+    const recipientOk = /^0x[a-fA-F0-9]{40}$/.test(recipientAddress.trim());
+    const passOk = allowDemoRaw || passphrase.trim().length > 0 || recipientOk;
     const connected = Boolean(address);
     return !file || !titleOk || !passOk || !connected;
-  }, [file, title, passphrase, address]);
+  }, [file, title, passphrase, recipientAddress, address]);
 
   const onSubmit = async () => {
     if (!file) return;
-    if (!allowDemoRaw && !passphrase.trim()) {
-      setStatus('Passphrase is required to wrap the key.');
+    const recipient = recipientAddress.trim();
+    if (recipient && !/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+      setStatus('Enter a valid recipient wallet address.');
+      return;
+    }
+    if (!allowDemoRaw && !passphrase.trim() && !recipient) {
+      setStatus('Enter a passphrase or recipient wallet.');
       return;
     }
     setStatus('Encrypting…');
@@ -113,7 +122,17 @@ export default function UploadWizard() {
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
       };
-      if (passphrase.trim()) {
+      if (recipient) {
+        setStatus('Encrypting key for recipient...');
+        const identityResponse = await fetch(`/api/identities/${encodeURIComponent(recipient)}`);
+        const identityData = await identityResponse.json();
+        if (!identityResponse.ok || !identityData.ok) {
+          throw new Error('Recipient must enable an encryption identity first');
+        }
+        const recipientPublicKey = identityData.identity.publicKey as EncryptionPublicJwk;
+        const recipientEnvelope = await wrapFileKeyForRecipient(rawKey, recipientPublicKey);
+        payload = { ...payload, recipientAddress: recipient, recipientEnvelope };
+      } else if (passphrase.trim()) {
         const enc = new TextEncoder();
         const webCrypto = globalThis.crypto;
         if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
@@ -243,7 +262,21 @@ export default function UploadWizard() {
                 <span>Wraps AES key with PBKDF2 (200k) + AES-GCM.</span>
                 <span className={`badge ${strengthLabel(passphrase).className}`}>{strengthLabel(passphrase).label}</span>
               </div>
-              {!allowDemoRaw && <div className="text-[11px] text-yellow-300 mt-1">Passphrase is required.</div>}
+              {!allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Recipient wallet (E2EE)</label>
+            <input
+              type="text"
+              placeholder="Optional recipient 0x address"
+              value={recipientAddress}
+              onChange={(e) => setRecipientAddress(e.target.value)}
+              className="input"
+            />
+            <div className="text-[11px] muted mt-1">
+              When set, only this wallet can validate the token and decrypt the file key. Passphrase is ignored.
             </div>
           </div>
 

@@ -3,6 +3,7 @@ import { getSessionAddress } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { randomUUID } from 'node:crypto';
 import { verifyCsrf } from '@/lib/csrf';
+import { normalizeAddress } from '@/lib/encryptionIdentity';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,10 @@ export async function POST(req: Request) {
     issuedTo?: string | null;
   };
   if (!fileId) return NextResponse.json({ error: 'Missing fileId' }, { status: 400 });
+  const recipient = issuedTo?.trim() || null;
+  if (recipient && !/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+    return NextResponse.json({ error: 'Invalid recipient address' }, { status: 400 });
+  }
   const db = getDb();
   const file = db.prepare('SELECT id FROM files WHERE id = ? AND owner_address = ?').get(fileId, address) as { id: string } | undefined;
   if (!file) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -23,7 +28,7 @@ export async function POST(req: Request) {
   const ttl = (typeof ttlMinutes === 'number' && ttlMinutes > 0 ? ttlMinutes : 24 * 60) * 60 * 1000;
   const expiresAt = new Date(Date.now() + ttl).toISOString();
   db.prepare('INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked) VALUES (?, ?, ?, ?, 0)')
-    .run(token, fileId, issuedTo ?? null, expiresAt);
+    .run(token, fileId, recipient ? normalizeAddress(recipient) : null, expiresAt);
   return NextResponse.json({ ok: true, token, expiresAt });
 }
 
