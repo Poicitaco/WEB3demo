@@ -15,9 +15,26 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   if (!getVaultRole(db, id, address)) {
     return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
   }
-  const members = db.prepare(
-    'SELECT address, role, created_at FROM vault_members WHERE vault_id = ? ORDER BY created_at'
-  ).all(id);
+  const rows = db.prepare(
+    `SELECT m.address, m.role, m.created_at, i.algorithm, i.public_key_jwk
+     FROM vault_members m LEFT JOIN encryption_identities i ON i.address = m.address
+     WHERE m.vault_id = ? ORDER BY m.created_at`
+  ).all(id) as Array<{
+    address: string;
+    role: string;
+    created_at: string;
+    algorithm: string | null;
+    public_key_jwk: string | null;
+  }>;
+  const members = rows.map((member) => ({
+    address: member.address,
+    role: member.role,
+    createdAt: member.created_at,
+    encryptionIdentity: member.public_key_jwk ? {
+      algorithm: member.algorithm,
+      publicKey: JSON.parse(member.public_key_jwk),
+    } : null,
+  }));
   return NextResponse.json({ ok: true, members });
 }
 
@@ -43,10 +60,13 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   if (target === vault.owner_address) {
     return NextResponse.json({ ok: false, error: 'Vault owner role cannot be changed' }, { status: 400 });
   }
-  db.prepare(
-    `INSERT INTO vault_members (vault_id, address, role, added_by) VALUES (?, ?, ?, ?)
-     ON CONFLICT(vault_id, address) DO UPDATE SET role = excluded.role, added_by = excluded.added_by`
-  ).run(id, target, role, normalizeAddress(address));
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO vault_members (vault_id, address, role, added_by) VALUES (?, ?, ?, ?)
+       ON CONFLICT(vault_id, address) DO UPDATE SET role = excluded.role, added_by = excluded.added_by`
+    ).run(id, target, role, normalizeAddress(address));
+    db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+  })();
   return NextResponse.json({ ok: true });
 }
 
@@ -67,6 +87,9 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
   if (member === normalizeAddress(address)) {
     return NextResponse.json({ ok: false, error: 'Vault owner cannot be removed' }, { status: 400 });
   }
-  db.prepare('DELETE FROM vault_members WHERE vault_id = ? AND address = ?').run(id, member);
+  db.transaction(() => {
+    db.prepare('DELETE FROM vault_members WHERE vault_id = ? AND address = ?').run(id, member);
+    db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+  })();
   return NextResponse.json({ ok: true });
 }

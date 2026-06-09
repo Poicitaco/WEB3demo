@@ -5,6 +5,7 @@ import {
   RECIPIENT_ENVELOPE_ALGORITHM,
   RECIPIENT_ENVELOPE_INFO,
   type RecipientKeyEnvelope,
+  type RecipientSecretEnvelope,
 } from '@/lib/recipientEnvelope';
 
 function bufferToBase64(buffer: ArrayBuffer) {
@@ -40,10 +41,10 @@ async function deriveEnvelopeKey(privateKey: CryptoKey, publicKey: CryptoKey, sa
   );
 }
 
-export async function wrapFileKeyForRecipient(
-  rawFileKey: ArrayBuffer,
+export async function wrapSecretForRecipient(
+  secret: ArrayBuffer,
   recipientPublicKey: EncryptionPublicJwk
-): Promise<RecipientKeyEnvelope> {
+): Promise<RecipientSecretEnvelope> {
   const recipientKey = await crypto.subtle.importKey(
     'jwk',
     recipientPublicKey,
@@ -62,7 +63,7 @@ export async function wrapFileKeyForRecipient(
   const wrappedKey = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
     wrappingKey,
-    rawFileKey
+    secret
   );
   const ephemeralPublicKey = await crypto.subtle.exportKey('jwk', ephemeral.publicKey) as EncryptionPublicJwk;
 
@@ -75,8 +76,8 @@ export async function wrapFileKeyForRecipient(
   };
 }
 
-export async function unwrapFileKeyFromRecipientEnvelope(
-  envelope: RecipientKeyEnvelope,
+export async function unwrapSecretFromRecipientEnvelope(
+  envelope: RecipientSecretEnvelope,
   recipientPrivateKey: CryptoKey
 ) {
   const ephemeralPublicKey = await crypto.subtle.importKey(
@@ -94,4 +95,18 @@ export async function unwrapFileKeyFromRecipientEnvelope(
     wrappingKey,
     base64ToBytes(envelope.wrappedKey).buffer as ArrayBuffer
   );
+}
+
+export async function wrapFileKeyForRecipient(
+  rawFileKey: ArrayBuffer,
+  recipientPublicKey: EncryptionPublicJwk
+): Promise<RecipientKeyEnvelope> {
+  return wrapSecretForRecipient(rawFileKey, recipientPublicKey);
+}
+
+export async function unwrapFileKeyFromRecipientEnvelope(
+  envelope: RecipientKeyEnvelope,
+  recipientPrivateKey: CryptoKey
+) {
+  return unwrapSecretFromRecipientEnvelope(envelope, recipientPrivateKey);
 }

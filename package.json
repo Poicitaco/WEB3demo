@@ -19,6 +19,7 @@
     "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "secrets.js-grempe": "^2.0.0",
     "uuid": "^13.0.1"
   },
   "devDependencies": {

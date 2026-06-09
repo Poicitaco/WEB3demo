@@ -87,6 +87,16 @@ function migrate(d: Database.Database) {
       PRIMARY KEY(vault_id, address),
       FOREIGN KEY(vault_id) REFERENCES vaults(id)
     );
+
+    CREATE TABLE IF NOT EXISTS vault_threshold_policies (
+      vault_id TEXT PRIMARY KEY,
+      threshold INTEGER NOT NULL,
+      total_shares INTEGER NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_by TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(vault_id) REFERENCES vaults(id)
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;

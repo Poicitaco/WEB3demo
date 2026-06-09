@@ -13,6 +13,12 @@ import {
   unwrapFileKeyFromRecipientEnvelope,
   wrapFileKeyForRecipient,
 } from '../src/lib/clientRecipientEnvelope';
+import {
+  combineSecret,
+  decryptThresholdShare,
+  encryptThresholdShares,
+  splitSecret,
+} from '../src/lib/clientThresholdShares';
 
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
@@ -301,6 +307,82 @@ test.describe('Collaborative vault access control', () => {
     await owner.req.dispose();
     await editor.req.dispose();
     await viewer.req.dispose();
+  });
+});
+
+test.describe('Shamir threshold policy foundation', () => {
+  test('recovers a secret from K encrypted member shares', async () => {
+    const secret = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
+    const shares = splitSecret(secret, 5, 3);
+    expect(Buffer.from(combineSecret(shares.slice(0, 2)))).not.toEqual(Buffer.from(secret));
+    const recipients = await Promise.all(Array.from({ length: 5 }, async (_, index) => {
+      const pair = await webcrypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveBits']
+      );
+      const publicKey = JSON.parse(
+        JSON.stringify(await webcrypto.subtle.exportKey('jwk', pair.publicKey))
+      ) as EncryptionPublicJwk;
+      return { address: ethers.Wallet.createRandom().address, publicKey, privateKey: pair.privateKey, index };
+    }));
+    const encrypted = await encryptThresholdShares(shares, recipients);
+    const approvedShares = await Promise.all(
+      encrypted.slice(0, 3).map((share, index) => decryptThresholdShare(share.envelope, recipients[index].privateKey))
+    );
+    expect(Buffer.from(combineSecret(approvedShares))).toEqual(Buffer.from(secret));
+  });
+
+  test('only owner configures policy and membership changes invalidate it', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const editor = await authenticatedRequest(baseURL);
+    await registerEncryptionIdentity(owner.req, owner.wallet);
+    await registerEncryptionIdentity(editor.req, editor.wallet);
+
+    const createVault = await owner.req.post('/api/vaults', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { name: 'Threshold Vault' },
+    });
+    const { vaultId } = await createVault.json();
+    const addEditor = await owner.req.post(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { memberAddress: editor.wallet.address, role: 'editor' },
+    });
+    expect(addEditor.ok()).toBeTruthy();
+
+    const editorPolicy = await editor.req.put(`/api/vaults/${vaultId}/threshold`, {
+      headers: { 'x-csrf': await csrfFor(editor.req) },
+      data: { threshold: 2 },
+    });
+    expect(editorPolicy.status()).toBe(403);
+
+    const ownerPolicy = await owner.req.put(`/api/vaults/${vaultId}/threshold`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { threshold: 2 },
+    });
+    expect(ownerPolicy.ok()).toBeTruthy();
+    const memberList = await owner.req.get(`/api/vaults/${vaultId}/members`);
+    const memberListBody = await memberList.json();
+    expect(memberListBody.members.every((member: { encryptionIdentity: unknown }) => member.encryptionIdentity)).toBeTruthy();
+
+    const memberWithoutIdentity = ethers.Wallet.createRandom();
+    const addViewer = await owner.req.post(`/api/vaults/${vaultId}/members`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { memberAddress: memberWithoutIdentity.address, role: 'viewer' },
+    });
+    expect(addViewer.ok()).toBeTruthy();
+    const invalidated = await owner.req.get(`/api/vaults/${vaultId}/threshold`);
+    expect((await invalidated.json()).policy).toBeNull();
+
+    const policyWithMissingIdentity = await owner.req.put(`/api/vaults/${vaultId}/threshold`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { threshold: 2 },
+    });
+    expect(policyWithMissingIdentity.status()).toBe(400);
+
+    await owner.req.dispose();
+    await editor.req.dispose();
   });
 });
 

@@ -12,7 +12,12 @@ type Vault = {
   file_count: number;
 };
 
-type Member = { address: string; role: 'owner' | 'editor' | 'viewer'; created_at: string };
+type Member = {
+  address: string;
+  role: 'owner' | 'editor' | 'viewer';
+  createdAt: string;
+  encryptionIdentity: { algorithm: string; publicKey: unknown } | null;
+};
 
 async function csrfToken() {
   const response = await fetch('/api/csrf');
@@ -27,6 +32,8 @@ export default function VaultManager() {
   const [members, setMembers] = useState<Member[]>([]);
   const [memberAddress, setMemberAddress] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('viewer');
+  const [threshold, setThreshold] = useState(2);
+  const [policy, setPolicy] = useState<{ threshold: number; total_shares: number } | null>(null);
 
   const loadVaults = useCallback(async () => {
     const response = await fetch('/api/vaults');
@@ -40,11 +47,23 @@ export default function VaultManager() {
     if (response.ok && data.ok) setMembers(data.members as Member[]);
   }, []);
 
+  const loadPolicy = useCallback(async (vaultId: string) => {
+    const response = await fetch(`/api/vaults/${vaultId}/threshold`);
+    const data = await response.json();
+    if (response.ok && data.ok) {
+      setPolicy(data.policy as { threshold: number; total_shares: number } | null);
+      if (data.policy?.threshold) setThreshold(data.policy.threshold as number);
+    }
+  }, []);
+
   useEffect(() => { loadVaults(); }, [loadVaults]);
   useEffect(() => {
-    if (selected) loadMembers(selected);
-    else setMembers([]);
-  }, [selected, loadMembers]);
+    if (selected) Promise.all([loadMembers(selected), loadPolicy(selected)]);
+    else {
+      setMembers([]);
+      setPolicy(null);
+    }
+  }, [selected, loadMembers, loadPolicy]);
 
   async function createVault() {
     const response = await fetch('/api/vaults', {
@@ -70,7 +89,7 @@ export default function VaultManager() {
     const data = await response.json();
     if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to add member');
     setMemberAddress('');
-    await Promise.all([loadMembers(selected), loadVaults()]);
+    await Promise.all([loadMembers(selected), loadVaults(), loadPolicy(selected)]);
     toast.success('Vault member saved');
   }
 
@@ -83,8 +102,33 @@ export default function VaultManager() {
     });
     const data = await response.json();
     if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to remove member');
-    await Promise.all([loadMembers(selected), loadVaults()]);
+    await Promise.all([loadMembers(selected), loadVaults(), loadPolicy(selected)]);
     toast.success('Vault member removed');
+  }
+
+  async function saveThresholdPolicy() {
+    if (!selected) return;
+    const response = await fetch(`/api/vaults/${selected}/threshold`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-csrf': await csrfToken() },
+      body: JSON.stringify({ threshold }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to save threshold policy');
+    await loadPolicy(selected);
+    toast.success('Threshold approval policy enabled');
+  }
+
+  async function disableThresholdPolicy() {
+    if (!selected) return;
+    const response = await fetch(`/api/vaults/${selected}/threshold`, {
+      method: 'DELETE',
+      headers: { 'x-csrf': await csrfToken() },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to disable threshold policy');
+    setPolicy(null);
+    toast.success('Threshold approval policy disabled');
   }
 
   const activeVault = vaults.find((vault) => vault.id === selected);
@@ -134,6 +178,7 @@ export default function VaultManager() {
                 <code className="break-all">{member.address}</code>
                 <div className="flex items-center gap-2">
                   <span className="badge">{member.role}</span>
+                  <span className="badge">{member.encryptionIdentity ? 'key ready' : 'missing key'}</span>
                   {activeVault.role === 'owner' && member.role !== 'owner' && (
                     <button className="btn-secondary text-xs" onClick={() => removeMember(member.address)}>Remove</button>
                   )}
@@ -141,6 +186,28 @@ export default function VaultManager() {
               </div>
             ))}
           </div>
+          {activeVault.role === 'owner' && (
+            <div className="border-t border-[var(--card-border)] pt-3 space-y-2">
+              <div className="text-sm font-semibold">Threshold approval</div>
+              <div className="text-xs muted">
+                {policy
+                  ? `Enabled: ${policy.threshold} of ${policy.total_shares} members are required.`
+                  : 'Disabled. Every member must enable an encryption identity before this can be enabled.'}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="input w-24"
+                  type="number"
+                  min={2}
+                  max={members.length}
+                  value={threshold}
+                  onChange={(event) => setThreshold(Number(event.target.value))}
+                />
+                <button className="btn-secondary" onClick={saveThresholdPolicy}>Enable / Update</button>
+                {policy && <button className="btn-secondary" onClick={disableThresholdPolicy}>Disable</button>}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
