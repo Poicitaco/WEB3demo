@@ -6,6 +6,11 @@ import type { Eip1193Provider } from 'ethers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 
+type EthereumProvider = Eip1193Provider & {
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
+};
+
 function short(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
@@ -33,7 +38,7 @@ export default function AccountMenu() {
   }, []);
 
   useEffect(() => {
-    const eth = (window as unknown as { ethereum?: Eip1193Provider | undefined }).ethereum;
+    const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
     if (!eth) return;
     const onAccounts = async (accs: string[]) => {
       if (!accs || accs.length === 0) {
@@ -63,11 +68,11 @@ export default function AccountMenu() {
     const onChain = (chainId: unknown) => {
       info(`Network changed (${String(chainId)})`);
     };
-    (eth as any).on?.('accountsChanged', onAccounts);
-    (eth as any).on?.('chainChanged', onChain);
+    eth.on?.('accountsChanged', onAccounts as (...args: unknown[]) => void);
+    eth.on?.('chainChanged', onChain);
     return () => {
-      (eth as any).removeListener?.('accountsChanged', onAccounts);
-      (eth as any).removeListener?.('chainChanged', onChain);
+      eth.removeListener?.('accountsChanged', onAccounts as (...args: unknown[]) => void);
+      eth.removeListener?.('chainChanged', onChain);
     };
   }, [setAddress, success, toastError, info]);
 
@@ -120,12 +125,11 @@ export default function AccountMenu() {
   };
 
   const explorer = async () => {
-    const eth = (window as unknown as { ethereum?: Eip1193Provider | undefined }).ethereum;
+    const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
     let url = 'https://etherscan.io/address/';
     try {
       if (eth) {
-        // @ts-ignore
-        const chainIdHex = await (eth as any).request?.({ method: 'eth_chainId' });
+        const chainIdHex = await eth.request({ method: 'eth_chainId' });
         const chainId = parseInt(chainIdHex as string, 16);
         if (chainId === 1) url = 'https://etherscan.io/address/';
         else if (chainId === 11155111) url = 'https://sepolia.etherscan.io/address/';
@@ -141,7 +145,7 @@ export default function AccountMenu() {
   const switchAccount = async () => {
     setLoading(true);
     try {
-      const eth = (window as any).ethereum;
+      const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
       if (!eth) throw new Error('MetaMask not found');
       await eth.request?.({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
       await connect();

@@ -98,7 +98,7 @@ export default function Downloader() {
       }
 
       setStatus('Decrypting…');
-      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
       let raw: ArrayBuffer;
       if (meta.rawKeyBase64) {

@@ -24,7 +24,7 @@ export default function EncryptUploader() {
     setToken('');
     try {
       // Use globalThis.crypto for Web Crypto API (client-side only)
-      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
         throw new Error('Web Crypto API not available');
       }

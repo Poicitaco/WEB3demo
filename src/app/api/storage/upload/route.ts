@@ -12,7 +12,6 @@ export async function POST(req: Request) {
 
   const form = await req.formData();
   const file = form.get('file');
-  const name = form.get('name');
   if (!(file instanceof Blob)) {
     return NextResponse.json({ error: 'Missing file' }, { status: 400 });
   }
@@ -25,6 +24,6 @@ export async function POST(req: Request) {
   if (type && type !== 'application/octet-stream') {
     return NextResponse.json({ error: 'Unsupported media type' }, { status: 415 });
   }
-  const { cid } = await putCiphertext(file, typeof name === 'string' ? name : undefined);
+  const { cid } = await putCiphertext(file);
   return NextResponse.json({ cid });
 }

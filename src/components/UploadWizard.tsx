@@ -77,7 +77,7 @@ export default function UploadWizard() {
     try {
       setStep(2);
       // Use globalThis.crypto for Web Crypto API (client-side only)
-      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
         throw new Error('Web Crypto API not available');
       }
@@ -115,7 +115,7 @@ export default function UploadWizard() {
       };
       if (passphrase.trim()) {
         const enc = new TextEncoder();
-        const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+        const webCrypto = globalThis.crypto;
         if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
         const salt = webCrypto.getRandomValues(new Uint8Array(16));
         const baseKey = await webCrypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);

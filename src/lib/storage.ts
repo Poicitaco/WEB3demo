@@ -14,7 +14,7 @@ function storageDir() {
   return dir;
 }
 
-export async function putCiphertextLocal(file: Blob, _name?: string): Promise<PutResult> {
+export async function putCiphertextLocal(file: Blob): Promise<PutResult> {
   const arrayBuffer = await file.arrayBuffer();
   const buf = Buffer.from(arrayBuffer);
   // Pseudo-CID: sha256 hex; for demo only
@@ -40,8 +40,8 @@ export async function getCiphertextLocal(cid: string) {
   });
 }
 
-export async function putCiphertext(file: Blob, name?: string): Promise<PutResult> {
-  if (provider === 'local') return putCiphertextLocal(file, name);
+export async function putCiphertext(file: Blob): Promise<PutResult> {
+  if (provider === 'local') return putCiphertextLocal(file);
   // Future: implement w3up client upload here
   throw new Error('Unsupported STORAGE_PROVIDER');
 }

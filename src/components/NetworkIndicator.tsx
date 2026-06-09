@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import type { Eip1193Provider } from 'ethers';
+
+type EthereumProvider = Eip1193Provider & {
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
+};
+
+function getEthereum() {
+  return (window as unknown as { ethereum?: EthereumProvider }).ethereum;
+}
 
 function nameFromChainId(id: number) {
   switch (id) {
@@ -18,7 +28,7 @@ export default function NetworkIndicator() {
 
   async function refresh() {
     try {
-      const eth = (window as any).ethereum;
+      const eth = getEthereum();
       if (!eth) { setLabel('No wallet'); return; }
       const chainIdHex = await eth.request?.({ method: 'eth_chainId' });
       const id = parseInt(chainIdHex as string, 16);
@@ -28,7 +38,7 @@ export default function NetworkIndicator() {
 
   useEffect(() => {
     refresh();
-    const eth = (window as any).ethereum;
+    const eth = getEthereum();
     const onChain = () => refresh();
     eth?.on?.('chainChanged', onChain);
     return () => eth?.removeListener?.('chainChanged', onChain);
