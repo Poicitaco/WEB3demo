@@ -129,6 +129,12 @@ export default function HomeExperience() {
       const overHero = Boolean((event.target as HTMLElement).closest('.spatial-hero'));
       gsap.to(heroOrb.current, { '--reveal-size': overHero ? '18%' : '0%', duration: .55, ease: 'power3.out', overwrite: 'auto' });
       const target = (event.target as HTMLElement).closest<HTMLElement>('[data-cursor]');
+      const material = (event.target as HTMLElement).closest<HTMLElement>('[data-material]');
+      if (material) {
+        const bounds = material.getBoundingClientRect();
+        material.style.setProperty('--light-x', `${((event.clientX - bounds.left) / bounds.width) * 100}%`);
+        material.style.setProperty('--light-y', `${((event.clientY - bounds.top) / bounds.height) * 100}%`);
+      }
       cursorCopy!.textContent = target?.dataset.cursor ?? '';
       gsap.to(cursor.current, {
         scale: target ? 1.8 : 1,
@@ -186,9 +192,11 @@ export default function HomeExperience() {
           <div className="cipher-field" aria-hidden="true">
             {cipherBlocks.map((_, index) => <i className="cipher-block" key={index} />)}
           </div>
-          <div className="scene-file">
+          <div className="scene-file" data-material>
               <i className="seal-scan" />
-              <span>quarterly-report.pdf</span><strong>SEALED</strong><small>ciphertext only / 18.4 mb</small>
+              <div className="file-top"><span>quarterly-report.pdf</span><i /></div>
+              <div className="file-seal"><b /><strong>SEALED</strong><em>Local encryption complete</em></div>
+              <div className="file-bottom"><small>ciphertext only / 18.4 mb</small><span>256</span></div>
           </div>
         </div>
       </section>
@@ -204,11 +212,11 @@ export default function HomeExperience() {
           <div className="access-origin"><span>FILE KEY</span><b /></div>
           <div className="access-line" />
           <div className="access-packet"><i /></div>
-          <div className="wallet-device">
+          <div className="wallet-device" data-material>
             <div className="wallet-camera" />
             <div className="wallet-screen">
-              <span>RECIPIENT</span>
-              <strong>0x7A...91C4</strong>
+              <div className="wallet-screen-top"><span>SECURESHARE</span><i /></div>
+              <div className="wallet-identity"><b>7A</b><span>RECIPIENT</span><strong>0x7A...91C4</strong></div>
               <div className="wallet-status"><b className="wallet-status-before">VERIFYING</b><b className="wallet-status-after">AUTHORIZED</b></div>
             </div>
           </div>
@@ -236,12 +244,12 @@ export default function HomeExperience() {
               <line className="threshold-line threshold-line-muted" x1="310" y1="310" x2="72" y2="232" />
             </svg>
             <div className="threshold-flare" />
-            <div className="threshold-node threshold-node-1"><span>01</span><b>AL</b></div>
-            <div className="threshold-node threshold-node-2"><span>02</span><b>MK</b></div>
-            <div className="threshold-node threshold-node-3"><span>03</span><b>TD</b></div>
-            <div className="threshold-node threshold-node-4"><span>04</span><b>JL</b></div>
-            <div className="threshold-node threshold-node-5"><span>05</span><b>PS</b></div>
-            <div className="threshold-core">
+            <div className="threshold-node threshold-node-1" data-material><span>01</span><b>AL</b><i /></div>
+            <div className="threshold-node threshold-node-2" data-material><span>02</span><b>MK</b><i /></div>
+            <div className="threshold-node threshold-node-3" data-material><span>03</span><b>TD</b><i /></div>
+            <div className="threshold-node threshold-node-4" data-material><span>04</span><b>JL</b><i /></div>
+            <div className="threshold-node threshold-node-5" data-material><span>05</span><b>PS</b><i /></div>
+            <div className="threshold-core" data-material>
               <span className="threshold-lock-closed">K/N</span>
               <span className="threshold-lock-open">OPEN</span>
             </div>
