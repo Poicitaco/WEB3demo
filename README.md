@@ -140,6 +140,11 @@ doan_attt/
 
 ## API Endpoints
 
+Detailed UI integration guidance is available in
+[`docs/UI_HANDOFF.md`](docs/UI_HANDOFF.md). The final classroom presentation flow
+is documented in [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md). Current milestone
+status is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
+
 ### Authentication
 
 - `POST /api/auth/start` - Get nonce for signing
@@ -149,12 +154,14 @@ doan_attt/
 ### File Storage
 
 - `POST /api/storage/upload` - Upload ciphertext
-- `GET /api/storage/get?cid=...` - Download ciphertext
+- `GET /api/storage/get?token=...` - Download ciphertext with a valid token
+- `GET /api/storage/get?approvalRequestId=...` - Download after threshold approval
 
 ### Files Metadata
 
 - `POST /api/files` - Create file metadata and get token
 - `GET /api/files/list` - List user's files
+- `GET /api/files/:id/versions` - List immutable file versions
 
 ### Token Management
 
@@ -166,6 +173,7 @@ doan_attt/
 ### Security
 
 - `GET /api/csrf` - Get CSRF token
+- `GET /api/audit` - List authorized immutable audit events
 
 ## Environment Variables
 
