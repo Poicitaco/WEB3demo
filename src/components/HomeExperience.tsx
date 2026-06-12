@@ -39,6 +39,10 @@ export default function HomeExperience() {
         gsap.to('.artifact-image', { y: -12, rotation: 1.5, duration: 4.5, ease: 'sine.inOut', repeat: -1, yoyo: true });
         gsap.to('.artifact-light', { scale: 1.14, autoAlpha: .72, duration: 3.4, ease: 'sine.inOut', repeat: -1, yoyo: true });
         gsap.to('.artifact-scan', { yPercent: 850, duration: 5.5, ease: 'none', repeat: -1, repeatDelay: 2.5 });
+        gsap.to('.hero-orb', {
+          '--reveal-size': '62%',
+          scrollTrigger: { trigger: '.spatial-hero', start: 'top top', end: 'bottom top', scrub: 1 },
+        });
 
         gsap.from('.bento-cell', {
           y: 80, scale: .94, autoAlpha: 0, stagger: .1, duration: 1,
@@ -127,12 +131,19 @@ export default function HomeExperience() {
     const yTo = gsap.quickTo(heroOrb.current, 'y', { duration: 1, ease: 'power3.out' });
     const cursorX = gsap.quickTo(cursor.current, 'x', { duration: .42, ease: 'power3.out' });
     const cursorY = gsap.quickTo(cursor.current, 'y', { duration: .42, ease: 'power3.out' });
+    const revealX = gsap.quickSetter(heroOrb.current, '--reveal-x');
+    const revealY = gsap.quickSetter(heroOrb.current, '--reveal-y');
     const cursorCopy = cursor.current.querySelector<HTMLElement>('.cursor-copy');
     const onPointer = (event: PointerEvent) => {
       xTo((event.clientX / innerWidth - .5) * 32);
       yTo((event.clientY / innerHeight - .5) * 24);
       cursorX(event.clientX);
       cursorY(event.clientY);
+      const orbBounds = heroOrb.current!.getBoundingClientRect();
+      revealX(`${((event.clientX - orbBounds.left) / orbBounds.width) * 100}%`);
+      revealY(`${((event.clientY - orbBounds.top) / orbBounds.height) * 100}%`);
+      const overHero = Boolean((event.target as HTMLElement).closest('.spatial-hero'));
+      gsap.to(heroOrb.current, { '--reveal-size': overHero ? '18%' : '0%', duration: .55, ease: 'power3.out', overwrite: 'auto' });
       const target = (event.target as HTMLElement).closest<HTMLElement>('[data-cursor]');
       cursorCopy!.textContent = target?.dataset.cursor ?? '';
       gsap.to(cursor.current, {
@@ -161,6 +172,10 @@ export default function HomeExperience() {
           <div className="artifact-frame">
             <i className="artifact-scan" />
             <Image className="artifact-image" src="/visuals/encrypted-artifact.png" alt="" fill priority sizes="(max-width: 900px) 105vw, 68vw" />
+            <div className="artifact-reveal">
+              <Image className="artifact-image artifact-image-open" src="/visuals/decrypted-artifact.png" alt="" fill priority sizes="(max-width: 900px) 105vw, 68vw" />
+            </div>
+            <i className="artifact-lens-ring" />
           </div>
         </div>
         <div className="spatial-hero-copy">
@@ -174,7 +189,7 @@ export default function HomeExperience() {
             <Link href="/dashboard" className="btn-secondary" data-cursor="explore">Explore the vault</Link>
           </div>
         </div>
-        <div className="hero-support hero-footnote"><span>AES-256-GCM</span><span>Wallet-bound access</span><span>Threshold recovery</span></div>
+        <p className="hero-reveal-hint hero-support">Move to reveal what the server never sees.</p>
       </section>
 
       <section className="interest-chapter">
