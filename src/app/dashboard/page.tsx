@@ -6,6 +6,7 @@ import TokenIssuer from '@/components/TokenIssuer';
 import VaultManager from '@/components/VaultManager';
 import ApprovalManager from '@/components/ApprovalManager';
 import VersionHistory from '@/components/VersionHistory';
+import PageIntro from '@/components/PageIntro';
 
 function formatBytes(n: number | null | undefined) {
   if (!n || n <= 0) return '—';
@@ -24,8 +25,8 @@ export default async function DashboardPage() {
   }
   if (!address) {
     return (
-    <div className="space-y-2">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+    <div className="page-shell">
+      <PageIntro kicker="Control room" title="Your encrypted operations." copy="Connect your wallet to inspect files, vaults, approvals, versions, and active access tokens." />
       <p className="text-sm muted">Connect your wallet to view your files.</p>
     </div>
   );
@@ -44,8 +45,8 @@ export default async function DashboardPage() {
      ORDER BY f.created_at DESC LIMIT 200`
   ).all(address.toLowerCase(), address) as Row[];
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Your Files</h1>
+    <div className="page-shell space-y-4">
+      <PageIntro kicker="Control room" title="Your encrypted operations." copy="Monitor every sealed file, collaborative vault, approval request, version, and share token." />
       {rows.length === 0 ? (
         <div className="glass p-4 text-sm">No files yet. Start by uploading.</div>
       ) : (

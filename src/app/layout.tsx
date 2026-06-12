@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SecureShare",
-  description: "Client-side encrypted file sharing",
+  title: "SecureShare | Zero-Knowledge File Control",
+  description: "Client-side encrypted file sharing controlled by wallets and threshold approvals",
 };
 
 export default function RootLayout({
@@ -31,14 +31,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <header className="sticky top-0 z-50">
-            <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-4">
-              <div className="text-sm font-semibold tracking-wide">SecureShare</div>
-              <nav className="glass px-3 py-1 rounded-full text-sm hidden sm:flex gap-4">
-                <Link href="/" className="hover:text-accent-3">Home</Link>
-                <Link href="/upload" className="hover:text-accent-3">Upload</Link>
-                <Link href="/download" className="hover:text-accent-3">Download</Link>
-                <Link href="/dashboard" className="hover:text-accent-3">Dashboard</Link>
+          <header className="site-header">
+            <div className="site-nav flex items-center justify-between gap-4">
+              <Link href="/" className="brand-mark"><span className="brand-glyph">SS</span><span>SecureShare</span></Link>
+              <nav className="nav-rail hidden sm:flex">
+                <Link href="/" className="nav-link">Home</Link>
+                <Link href="/upload" className="nav-link">Upload</Link>
+                <Link href="/download" className="nav-link">Download</Link>
+                <Link href="/dashboard" className="nav-link">Dashboard</Link>
               </nav>
               <div className="flex items-center gap-3">
                 <NetworkIndicator />
@@ -47,7 +47,13 @@ export default function RootLayout({
               </div>
             </div>
           </header>
-          <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+          <main>{children}</main>
+          <nav className="mobile-dock sm:hidden" aria-label="Mobile navigation">
+            <Link href="/">Home</Link>
+            <Link href="/upload">Upload</Link>
+            <Link href="/download">Decrypt</Link>
+            <Link href="/dashboard">Control</Link>
+          </nav>
         </Providers>
       </body>
     </html>
