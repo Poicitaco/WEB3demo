@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -35,9 +36,9 @@ export default function HomeExperience() {
           .from('.hero-support', { y: 22, autoAlpha: 0, duration: .75, stagger: .1 }, '-=.55')
           .from('.hero-orb', { scale: .6, autoAlpha: 0, duration: 1.4 }, '-=1.05');
 
-        gsap.to('.orb-shell-a', { rotation: 360, duration: 30, ease: 'none', repeat: -1 });
-        gsap.to('.orb-shell-b', { rotation: -360, duration: 22, ease: 'none', repeat: -1 });
-        gsap.to('.orb-light', { scale: 1.18, autoAlpha: .7, duration: 3.2, ease: 'sine.inOut', repeat: -1, yoyo: true });
+        gsap.to('.artifact-image', { y: -12, rotation: 1.5, duration: 4.5, ease: 'sine.inOut', repeat: -1, yoyo: true });
+        gsap.to('.artifact-light', { scale: 1.14, autoAlpha: .72, duration: 3.4, ease: 'sine.inOut', repeat: -1, yoyo: true });
+        gsap.to('.artifact-scan', { yPercent: 850, duration: 5.5, ease: 'none', repeat: -1, repeatDelay: 2.5 });
 
         gsap.from('.bento-cell', {
           y: 80, scale: .94, autoAlpha: 0, stagger: .1, duration: 1,
@@ -156,10 +157,11 @@ export default function HomeExperience() {
       <div ref={cursor} className="motion-cursor" aria-hidden="true"><span className="cursor-copy" /></div>
       <section className="spatial-hero">
         <div ref={heroOrb} className="hero-orb" data-cursor="sealed" aria-hidden="true">
-          <div className="orb-light" />
-          <div className="orb-shell orb-shell-a"><i/><i/><i/><i/></div>
-          <div className="orb-shell orb-shell-b"><b>KEY</b><b>0x</b><b>K/N</b></div>
-          <div className="orb-glass"><span>Encrypted</span><strong>SS</strong><small>Client-side trust</small></div>
+          <div className="artifact-light" />
+          <div className="artifact-frame">
+            <i className="artifact-scan" />
+            <Image className="artifact-image" src="/visuals/encrypted-artifact.png" alt="" fill priority sizes="(max-width: 900px) 105vw, 68vw" />
+          </div>
         </div>
         <div className="spatial-hero-copy">
           <p className="hero-support">Private file infrastructure for teams that cannot rely on trust alone.</p>
@@ -251,7 +253,7 @@ export default function HomeExperience() {
       </section>
 
       <section className="spatial-final">
-        <div className="final-reveal final-orb"><span>SS</span></div>
+        <div className="final-reveal final-orb"><span className="seal-mark" /></div>
         <h2 className="final-reveal">Make access feel deliberate.</h2>
         <p className="final-reveal">Encrypt locally. Share selectively. Recover together.</p>
         <Link href="/upload" className="btn-primary final-reveal" data-cursor="create">Create a sealed file</Link>
