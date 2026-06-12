@@ -12,12 +12,6 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 const revealWords = 'Security should feel invisible until the exact moment you need proof that it is working.'.split(' ');
 const cipherBlocks = Array.from({ length: 12 });
 
-const stackCards = [
-  { title: 'Encrypt before upload', copy: 'AES-256-GCM seals every byte locally. The server receives ciphertext, never plaintext.', code: 'LOCAL / AES-GCM' },
-  { title: 'Bind access to wallets', copy: 'Recipient keys are wrapped with ECDH P-256 so possession of a link is never enough.', code: 'ECDH / P-256' },
-  { title: 'Turn trust into consensus', copy: 'Shamir K-of-N approvals distribute authority across the people who should hold it.', code: 'THRESHOLD / K-N' },
-];
-
 export default function HomeExperience() {
   const root = useRef<HTMLDivElement>(null);
   const heroOrb = useRef<HTMLDivElement>(null);
@@ -44,28 +38,37 @@ export default function HomeExperience() {
           scrollTrigger: { trigger: '.spatial-hero', start: 'top top', end: 'bottom top', scrub: 1 },
         });
 
-        gsap.from('.bento-cell', {
-          y: 80, scale: .94, autoAlpha: 0, stagger: .1, duration: 1,
-          scrollTrigger: { trigger: '.bento-grid', start: 'top 82%', once: true },
-        });
-
         gsap.timeline({
-          scrollTrigger: { trigger: '.bento-visual', start: 'top 74%', end: 'bottom 35%', scrub: 1.1 },
+          scrollTrigger: { trigger: '.encrypt-scene', start: 'top 72%', end: 'bottom 38%', scrub: 1.1 },
         })
-          .to('.visual-file', { rotationY: 12, scale: .88, duration: 1 }, 0)
+          .from('.encrypt-copy > *', { y: 55, autoAlpha: 0, stagger: .12, duration: .8 }, 0)
+          .from('.scene-file', { rotationY: -18, scale: .82, autoAlpha: 0, duration: 1 }, 0)
+          .to('.scene-file', { rotationY: 12, scale: .88, duration: 1 }, .55)
           .fromTo('.cipher-block', {
             x: 0, y: 0, scale: .2, autoAlpha: 0,
           }, {
-            x: (index) => ((index % 4) - 1.5) * 92,
-            y: (index) => (Math.floor(index / 4) - 1) * 92,
+            x: (index) => ((index % 4) - 1.5) * 112,
+            y: (index) => (Math.floor(index / 4) - 1) * 112,
             scale: 1,
             autoAlpha: 1,
             stagger: .025,
             duration: 1,
-          }, .12)
-          .to('.cipher-block', { x: 0, y: 0, scale: .3, autoAlpha: 0, stagger: .018, duration: .8 }, 1.15)
-          .to('.visual-file', { rotationY: 0, scale: 1, duration: .8 }, 1.25)
-          .fromTo('.seal-scan', { yPercent: -130, autoAlpha: 0 }, { yPercent: 450, autoAlpha: 1, duration: .7 }, 1.45);
+          }, .65)
+          .to('.cipher-block', { x: 0, y: 0, scale: .3, autoAlpha: 0, stagger: .018, duration: .8 }, 1.65)
+          .to('.scene-file', { rotationY: 0, scale: 1, duration: .8 }, 1.75)
+          .fromTo('.seal-scan', { yPercent: -130, autoAlpha: 0 }, { yPercent: 550, autoAlpha: 1, duration: .7 }, 1.95);
+
+        gsap.timeline({
+          scrollTrigger: { trigger: '.wallet-scene', start: 'top 72%', end: 'bottom 35%', scrub: 1 },
+        })
+          .from('.wallet-copy > *', { y: 55, autoAlpha: 0, stagger: .12, duration: .8 })
+          .from('.wallet-device', { x: 100, rotationY: -24, autoAlpha: 0, duration: 1 }, 0)
+          .from('.access-packet', { x: -260, scale: .35, autoAlpha: 0, duration: 1.2 }, .5)
+          .to('.access-line', { scaleX: 1, duration: 1.2 }, .55)
+          .to('.access-packet', { x: 160, rotation: 90, duration: 1.2 }, 1.1)
+          .to('.wallet-status-before', { y: -18, autoAlpha: 0, duration: .35 }, 1.8)
+          .to('.wallet-status-after', { y: 0, autoAlpha: 1, duration: .4 }, 1.9)
+          .to('.wallet-glow', { scale: 1.25, autoAlpha: .65, duration: .55 }, 1.8);
 
         gsap.to('.reveal-word', {
           color: '#f7f8fb',
@@ -95,25 +98,6 @@ export default function HomeExperience() {
           gsap.from('.threshold-node, .threshold-core', {
             y: 30, autoAlpha: 0, stagger: .08, duration: .7,
             scrollTrigger: { trigger: '.threshold-panel', start: 'top 78%', once: true },
-          });
-        }
-
-        if (context.conditions.desktop) {
-          const cards = gsap.utils.toArray<HTMLElement>('.stack-card');
-          cards.forEach((card, index) => {
-            gsap.to(card, {
-              scale: 1 - (cards.length - index - 1) * .035,
-              y: -index * 14,
-              filter: `brightness(${.72 + index * .1})`,
-              scrollTrigger: {
-                trigger: card,
-                start: 'top 18%',
-                end: '+=75%',
-                scrub: .8,
-                pin: true,
-                pinSpacing: index === cards.length - 1,
-              },
-            });
           });
         }
 
@@ -192,28 +176,42 @@ export default function HomeExperience() {
         <p className="hero-reveal-hint hero-support">Move to reveal what the server never sees.</p>
       </section>
 
-      <section className="interest-chapter">
-        <div className="chapter-heading">
-          <h2>Designed around the moment access matters.</h2>
-          <p>Every layer stays quiet, legible, and verifiable until someone asks to open the file.</p>
+      <section className="product-scene encrypt-scene">
+        <div className="scene-copy encrypt-copy">
+          <span>01 / Local encryption</span>
+          <h2>Sealed before it leaves.</h2>
+          <p>AES-256-GCM transforms every byte before upload. Storage receives an unreadable object, never your original file.</p>
         </div>
-        <div className="bento-grid">
-          <article className="bento-cell bento-visual" data-cursor="encrypt">
-            <div className="visual-haze" />
-            <div className="cipher-field" aria-hidden="true">
-              {cipherBlocks.map((_, index) => <i className="cipher-block" key={index} />)}
-            </div>
-            <div className="visual-file">
+        <div className="scene-visual encrypt-visual" data-cursor="encrypt">
+          <div className="cipher-field" aria-hidden="true">
+            {cipherBlocks.map((_, index) => <i className="cipher-block" key={index} />)}
+          </div>
+          <div className="scene-file">
               <i className="seal-scan" />
-              <span>contract.pdf</span><strong>SEALED</strong><small>256-bit authenticated encryption</small>
+              <span>quarterly-report.pdf</span><strong>SEALED</strong><small>ciphertext only / 18.4 mb</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="product-scene wallet-scene">
+        <div className="scene-copy wallet-copy">
+          <span>02 / Wallet-bound access</span>
+          <h2>A shared link is not permission.</h2>
+          <p>The file key is wrapped for one recipient wallet. Forward the URL anywhere; only the intended wallet can open it.</p>
+        </div>
+        <div className="scene-visual wallet-visual" data-cursor="authorize">
+          <div className="wallet-glow" />
+          <div className="access-origin"><span>FILE KEY</span><b /></div>
+          <div className="access-line" />
+          <div className="access-packet"><i /></div>
+          <div className="wallet-device">
+            <div className="wallet-camera" />
+            <div className="wallet-screen">
+              <span>RECIPIENT</span>
+              <strong>0x7A...91C4</strong>
+              <div className="wallet-status"><b className="wallet-status-before">VERIFYING</b><b className="wallet-status-after">AUTHORIZED</b></div>
             </div>
-          </article>
-          <article className="bento-cell bento-copy" data-cursor="wallet">
-            <span>Wallet access</span><h3>A link is not permission.</h3><p>Only the intended wallet can unwrap the key.</p>
-          </article>
-          <article className="bento-cell bento-copy bento-copy-alt" data-cursor="3 of 5">
-            <span>Shared authority</span><h3>No single point of approval.</h3><p>Require K people before recovery becomes possible.</p>
-          </article>
+          </div>
         </div>
       </section>
 
@@ -248,22 +246,6 @@ export default function HomeExperience() {
               <span className="threshold-lock-open">OPEN</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="stack-chapter">
-        <div className="stack-intro">
-          <h2>A security model you can explain in three moves.</h2>
-          <p>Complex cryptography, presented as a calm sequence of human decisions.</p>
-        </div>
-        <div className="stack-list">
-          {stackCards.map((card, index) => (
-            <article className="stack-card" data-cursor={`0${index + 1}`} key={card.title}>
-              <div className="stack-card-index">0{index + 1}</div>
-              <div><span>{card.code}</span><h3>{card.title}</h3><p>{card.copy}</p></div>
-              <div className="stack-card-orbit"><i/><i/><i/></div>
-            </article>
-          ))}
         </div>
       </section>
 
