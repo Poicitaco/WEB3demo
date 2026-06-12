@@ -21,6 +21,7 @@ export function getDb() {
 function migrate(d: Database.Database) {
   d.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS files (
       id TEXT PRIMARY KEY,
       owner_address TEXT NOT NULL,
@@ -47,6 +48,121 @@ function migrate(d: Database.Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(file_id) REFERENCES files(id)
     );
+
+    CREATE TABLE IF NOT EXISTS encryption_identities (
+      address TEXT PRIMARY KEY,
+      algorithm TEXT NOT NULL,
+      public_key_jwk TEXT NOT NULL,
+      wallet_signature TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS key_envelopes (
+      token TEXT PRIMARY KEY,
+      recipient_address TEXT NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_key BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(token) REFERENCES tokens(token)
+    );
+
+    CREATE TABLE IF NOT EXISTS vaults (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      owner_address TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS vault_members (
+      vault_id TEXT NOT NULL,
+      address TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
+      added_by TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(vault_id, address),
+      FOREIGN KEY(vault_id) REFERENCES vaults(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS vault_threshold_policies (
+      vault_id TEXT PRIMARY KEY,
+      threshold INTEGER NOT NULL,
+      total_shares INTEGER NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_by TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(vault_id) REFERENCES vaults(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS threshold_file_shares (
+      file_id TEXT NOT NULL,
+      member_address TEXT NOT NULL,
+      share_index INTEGER NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_share BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(file_id, member_address),
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS threshold_files (
+      file_id TEXT PRIMARY KEY,
+      threshold INTEGER NOT NULL,
+      total_shares INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_requests (
+      id TEXT PRIMARY KEY,
+      file_id TEXT NOT NULL,
+      requester_address TEXT NOT NULL,
+      threshold INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'expired', 'cancelled')),
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(file_id) REFERENCES files(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_contributions (
+      request_id TEXT NOT NULL,
+      approver_address TEXT NOT NULL,
+      share_index INTEGER NOT NULL,
+      algorithm TEXT NOT NULL,
+      ephemeral_public_key_jwk TEXT NOT NULL,
+      salt BLOB NOT NULL,
+      iv BLOB NOT NULL,
+      wrapped_share BLOB NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(request_id, approver_address),
+      FOREIGN KEY(request_id) REFERENCES approval_requests(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      scope TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      window_start INTEGER NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(scope, identifier, window_start)
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id TEXT PRIMARY KEY,
+      actor_address TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT,
+      outcome TEXT NOT NULL CHECK(outcome IN ('success', 'denied', 'failure')),
+      metadata_json TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
@@ -54,4 +170,39 @@ function migrate(d: Database.Database) {
   if (!names.has('description')) {
     d.exec(`ALTER TABLE files ADD COLUMN description TEXT`);
   }
+  if (!names.has('vault_id')) {
+    d.exec(`ALTER TABLE files ADD COLUMN vault_id TEXT REFERENCES vaults(id)`);
+  }
+  if (!names.has('logical_file_id')) {
+    d.exec(`ALTER TABLE files ADD COLUMN logical_file_id TEXT`);
+    d.exec(`UPDATE files SET logical_file_id = id WHERE logical_file_id IS NULL`);
+  }
+  if (!names.has('version_number')) {
+    d.exec(`ALTER TABLE files ADD COLUMN version_number INTEGER NOT NULL DEFAULT 1`);
+  }
+  if (!names.has('max_downloads')) {
+    d.exec(`ALTER TABLE files ADD COLUMN max_downloads INTEGER`);
+  }
+  if (!names.has('download_count')) {
+    d.exec(`ALTER TABLE files ADD COLUMN download_count INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!names.has('destroyed_at')) {
+    d.exec(`ALTER TABLE files ADD COLUMN destroyed_at DATETIME`);
+  }
+  d.exec(`
+    CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
+    CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);
+    CREATE INDEX IF NOT EXISTS idx_tokens_file_id ON tokens(file_id);
+    CREATE INDEX IF NOT EXISTS idx_files_logical_file_id ON files(logical_file_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_files_logical_version ON files(logical_file_id, version_number);
+    CREATE INDEX IF NOT EXISTS idx_threshold_file_shares_member ON threshold_file_shares(member_address);
+    CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON approval_requests(requester_address);
+    CREATE INDEX IF NOT EXISTS idx_audit_events_actor ON audit_events(actor_address, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_events_resource ON audit_events(resource_type, resource_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
+    CREATE TRIGGER IF NOT EXISTS audit_events_no_update
+      BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit events are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS audit_events_no_delete
+      BEFORE DELETE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit events are immutable'); END;
+  `);
 }

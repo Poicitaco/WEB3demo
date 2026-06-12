@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 
 type TokenRow = {
-  token: string; file_id: string; revoked: number; expires_at: string | null; created_at: string;
+  token: string; file_id: string; issued_to_address: string | null; revoked: number; expires_at: string | null; created_at: string;
   title: string | null; name: string | null; size_bytes: number | null;
+  max_downloads: number | null; download_count: number; destroyed_at: string | null;
 };
 
 export default function TokenManager() {
@@ -60,6 +61,8 @@ export default function TokenManager() {
               <th className="py-2 pr-3">Token</th>
               <th className="py-2 pr-3">File</th>
               <th className="py-2 pr-3">Status</th>
+              <th className="py-2 pr-3">Recipient</th>
+              <th className="py-2 pr-3">Downloads</th>
               <th className="py-2 pr-3">Expires</th>
               <th className="py-2 pr-3">Actions</th>
             </tr>
@@ -69,7 +72,13 @@ export default function TokenManager() {
               <tr key={r.token} className="border-t border-[rgba(255,255,255,0.08)]">
                 <td className="py-2 pr-3 font-mono text-xs">{r.token.slice(0, 8)}…</td>
                 <td className="py-2 pr-3">{r.title || r.name || 'file'}</td>
-                <td className="py-2 pr-3">{r.revoked ? 'Revoked' : 'Active'}</td>
+                <td className="py-2 pr-3">{r.destroyed_at ? 'Destroyed' : r.revoked ? 'Revoked' : 'Active'}</td>
+                <td className="py-2 pr-3 font-mono text-xs">
+                  {r.issued_to_address ? `${r.issued_to_address.slice(0, 6)}...${r.issued_to_address.slice(-4)}` : 'Anyone with token'}
+                </td>
+                <td className="py-2 pr-3">
+                  {r.max_downloads == null ? 'Unlimited' : `${Math.max(0, r.max_downloads - r.download_count)} / ${r.max_downloads} left`}
+                </td>
                 <td className="py-2 pr-3">{r.expires_at ? new Date(r.expires_at).toLocaleString() : '—'}</td>
                 <td className="py-2 pr-3">
                   <button className="btn-secondary text-xs" disabled={!!r.revoked} onClick={() => revoke(r.token)}>Revoke</button>

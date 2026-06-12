@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -32,6 +34,23 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# local runtime data
+/data/*
+!/data/.gitkeep
+/storage/*
+!/storage/.gitkeep
+
+# local scratch and backup files
+/.tmp/
+*.bak
+
+# generated report artifacts
+/report/*.log
+/report/*.aux
+/report/*.out
+/report/*.toc
 
 # vercel
 .vercel

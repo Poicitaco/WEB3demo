@@ -9,15 +9,19 @@ export async function GET() {
   if (!address) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const db = getDb();
   type Row = {
-    token: string; file_id: string; revoked: number; expires_at: string | null; created_at: string;
+    token: string; file_id: string; issued_to_address: string | null; revoked: number; expires_at: string | null; created_at: string;
     title: string | null; name: string | null; size_bytes: number | null;
+    max_downloads: number | null; download_count: number; destroyed_at: string | null;
   };
   const rows = db.prepare(
-    `SELECT t.token, t.file_id, t.revoked, t.expires_at, t.created_at,
-            f.title, f.name, f.size_bytes
-     FROM tokens t JOIN files f ON f.id = t.file_id WHERE f.owner_address = ?
+    `SELECT t.token, t.file_id, t.issued_to_address, t.revoked, t.expires_at, t.created_at,
+            f.title, f.name, f.size_bytes, f.max_downloads, f.download_count, f.destroyed_at
+     FROM tokens t
+     JOIN files f ON f.id = t.file_id
+     LEFT JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?
+     WHERE (f.vault_id IS NULL AND f.owner_address = ?) OR m.role IN ('owner', 'editor')
      ORDER BY t.created_at DESC LIMIT 500`
-  ).all(address) as Row[];
+  ).all(address.toLowerCase(), address) as Row[];
   return NextResponse.json({ ok: true, tokens: rows });
 }
 

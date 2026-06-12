@@ -5,6 +5,12 @@ import { ethers } from 'ethers';
 import type { Eip1193Provider } from 'ethers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
+import EncryptionIdentityControl from '@/components/EncryptionIdentityControl';
+
+type EthereumProvider = Eip1193Provider & {
+  on?: (event: string, listener: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
+};
 
 function short(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -33,7 +39,7 @@ export default function AccountMenu() {
   }, []);
 
   useEffect(() => {
-    const eth = (window as unknown as { ethereum?: Eip1193Provider | undefined }).ethereum;
+    const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
     if (!eth) return;
     const onAccounts = async (accs: string[]) => {
       if (!accs || accs.length === 0) {
@@ -63,11 +69,11 @@ export default function AccountMenu() {
     const onChain = (chainId: unknown) => {
       info(`Network changed (${String(chainId)})`);
     };
-    (eth as any).on?.('accountsChanged', onAccounts);
-    (eth as any).on?.('chainChanged', onChain);
+    eth.on?.('accountsChanged', onAccounts as (...args: unknown[]) => void);
+    eth.on?.('chainChanged', onChain);
     return () => {
-      (eth as any).removeListener?.('accountsChanged', onAccounts);
-      (eth as any).removeListener?.('chainChanged', onChain);
+      eth.removeListener?.('accountsChanged', onAccounts as (...args: unknown[]) => void);
+      eth.removeListener?.('chainChanged', onChain);
     };
   }, [setAddress, success, toastError, info]);
 
@@ -120,12 +126,11 @@ export default function AccountMenu() {
   };
 
   const explorer = async () => {
-    const eth = (window as unknown as { ethereum?: Eip1193Provider | undefined }).ethereum;
+    const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
     let url = 'https://etherscan.io/address/';
     try {
       if (eth) {
-        // @ts-ignore
-        const chainIdHex = await (eth as any).request?.({ method: 'eth_chainId' });
+        const chainIdHex = await eth.request({ method: 'eth_chainId' });
         const chainId = parseInt(chainIdHex as string, 16);
         if (chainId === 1) url = 'https://etherscan.io/address/';
         else if (chainId === 11155111) url = 'https://sepolia.etherscan.io/address/';
@@ -141,7 +146,7 @@ export default function AccountMenu() {
   const switchAccount = async () => {
     setLoading(true);
     try {
-      const eth = (window as any).ethereum;
+      const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
       if (!eth) throw new Error('MetaMask not found');
       await eth.request?.({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
       await connect();
@@ -170,12 +175,13 @@ export default function AccountMenu() {
         <span className="text-sm">{short(address)}</span>
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-56 glass p-2 text-sm">
+        <div className="absolute right-0 mt-2 w-72 glass p-2 text-sm">
           <div className="px-2 py-1 muted">Account</div>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={copy}>Copy address</button>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={explorer}>View on explorer</button>
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={switchAccount}>Switch account</button>
           <a className="block px-2 py-1 hover:text-accent-3" href="/dashboard">My files</a>
+          <EncryptionIdentityControl address={address} />
           <div className="border-t border-[rgba(255,255,255,0.12)] my-1" />
           <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={logout}>Sign out</button>
         </div>

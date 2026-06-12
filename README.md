@@ -213,12 +213,13 @@ npm start
 - ✅ SameSite cookie attribute
 - ✅ JWT-based session management
 - ✅ Input validation and sanitization
-- ✅ Rate limiting (recommended for production)
+- ✅ Persistent SQLite-backed rate limiting on critical APIs
+- ✅ Immutable audit events for sensitive access and mutations
 
 ### Limitations
 
 - 🔴 Local storage for demo (scale with IPFS/Filecoin)
-- 🔴 No rate limiting in current version
+- 🔴 External monitoring and audit-log export are not configured
 - 🔴 Demo mode allows raw keys (use wrapped keys in production)
 
 ## Future Roadmap
@@ -233,7 +234,7 @@ npm start
 
 - IPFS/Filecoin integration
 - Attribute-Based Access Control (ABAC)
-- Audit logging
+- External audit-log export and monitoring
 
 ### Long-term (6+ months)
 
@@ -272,7 +273,7 @@ Contributions are welcome! Please follow these steps:
 ⚠️ **Important**: This is a research/education project. Before using in production:
 
 - Conduct professional security audit
-- Enable rate limiting and monitoring
+- Connect audit events and rate-limit metrics to external monitoring
 - Use HTTPS everywhere
 - Disable demo mode (`ALLOW_DEMO_RAW_KEYS=false`)
 - Implement proper key backup/recovery

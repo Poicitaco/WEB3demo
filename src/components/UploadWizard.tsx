@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
+import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
+import { wrapFileKeyForRecipient } from '@/lib/clientRecipientEnvelope';
+import { encryptThresholdShares, splitSecret } from '@/lib/clientThresholdShares';
 
 function bufToBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
@@ -12,6 +15,18 @@ function bufToBase64(buf: ArrayBuffer) {
 }
 
 type Step = 1 | 2 | 3;
+type VaultOption = { id: string; name: string; role: 'owner' | 'editor' | 'viewer' };
+type VaultMember = {
+  address: string;
+  encryptionIdentity: { publicKey: EncryptionPublicJwk } | null;
+};
+type VersionTarget = {
+  id: string;
+  title: string | null;
+  name: string | null;
+  vault_id: string | null;
+  version_number: number;
+};
 
 function strengthLabel(pw: string) {
   const len = pw.length;
@@ -44,10 +59,56 @@ export default function UploadWizard() {
   const [cid, setCid] = useState('');
   const [description, setDescription] = useState('');
   const [ttl, setTtl] = useState<number>(1440);
+  const [maxDownloads, setMaxDownloads] = useState<number>(0);
   const [passphrase, setPassphrase] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [vaultId, setVaultId] = useState('');
+  const [vaults, setVaults] = useState<VaultOption[]>([]);
+  const [vaultPolicy, setVaultPolicy] = useState<{ threshold: number; total_shares: number } | null>(null);
+  const [vaultMembers, setVaultMembers] = useState<VaultMember[]>([]);
+  const [parentFileId, setParentFileId] = useState('');
+  const [versionTargets, setVersionTargets] = useState<VersionTarget[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setVaults([]);
+      setVaultId('');
+      return;
+    }
+    fetch('/api/vaults')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.ok) setVaults((data.vaults as VaultOption[]).filter((vault) => vault.role !== 'viewer'));
+      })
+      .catch(() => setVaults([]));
+    fetch('/api/files/list')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.ok) setVersionTargets(data.files as VersionTarget[]);
+      })
+      .catch(() => setVersionTargets([]));
+  }, [address]);
+
+  useEffect(() => {
+    if (!vaultId) {
+      setVaultPolicy(null);
+      setVaultMembers([]);
+      return;
+    }
+    Promise.all([
+      fetch(`/api/vaults/${vaultId}/threshold`).then((response) => response.json()),
+      fetch(`/api/vaults/${vaultId}/members`).then((response) => response.json()),
+    ]).then(([policyData, memberData]) => {
+      setVaultPolicy(policyData.ok ? policyData.policy : null);
+      setVaultMembers(memberData.ok ? memberData.members as VaultMember[] : []);
+    }).catch(() => {
+      setVaultPolicy(null);
+      setVaultMembers([]);
+    });
+  }, [vaultId]);
 
   const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -60,15 +121,21 @@ export default function UploadWizard() {
 
   const disabled = useMemo(() => {
     const titleOk = title.trim().length > 0;
-    const passOk = allowDemoRaw ? true : passphrase.trim().length > 0;
+    const recipientOk = /^0x[a-fA-F0-9]{40}$/.test(recipientAddress.trim());
+    const passOk = Boolean(vaultPolicy) || allowDemoRaw || passphrase.trim().length > 0 || recipientOk;
     const connected = Boolean(address);
     return !file || !titleOk || !passOk || !connected;
-  }, [file, title, passphrase, address]);
+  }, [file, title, passphrase, recipientAddress, address, vaultPolicy]);
 
   const onSubmit = async () => {
     if (!file) return;
-    if (!allowDemoRaw && !passphrase.trim()) {
-      setStatus('Passphrase is required to wrap the key.');
+    const recipient = recipientAddress.trim();
+    if (recipient && !/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+      setStatus('Enter a valid recipient wallet address.');
+      return;
+    }
+    if (!vaultPolicy && !allowDemoRaw && !passphrase.trim() && !recipient) {
+      setStatus('Enter a passphrase or recipient wallet.');
       return;
     }
     setStatus('Encrypting…');
@@ -77,7 +144,7 @@ export default function UploadWizard() {
     try {
       setStep(2);
       // Use globalThis.crypto for Web Crypto API (client-side only)
-      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
         throw new Error('Web Crypto API not available');
       }
@@ -112,10 +179,44 @@ export default function UploadWizard() {
         sizeBytes: file.size,
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
+        maxDownloads: maxDownloads > 0 ? maxDownloads : undefined,
+        vaultId: vaultId || undefined,
+        parentFileId: parentFileId || undefined,
       };
-      if (passphrase.trim()) {
+      if (vaultPolicy) {
+        if (vaultMembers.length !== vaultPolicy.total_shares || vaultMembers.some((member) => !member.encryptionIdentity)) {
+          throw new Error('Vault threshold policy members are not ready');
+        }
+        setStatus('Creating encrypted threshold shares...');
+        const shares = splitSecret(rawKey, vaultPolicy.total_shares, vaultPolicy.threshold);
+        const encryptedShares = await encryptThresholdShares(
+          shares,
+          vaultMembers.map((member) => ({
+            address: member.address,
+            publicKey: member.encryptionIdentity!.publicKey,
+          }))
+        );
+        payload = {
+          ...payload,
+          thresholdShares: encryptedShares.map((share) => ({
+            memberAddress: share.recipientAddress,
+            shareIndex: share.shareIndex,
+            envelope: share.envelope,
+          })),
+        };
+      } else if (recipient) {
+        setStatus('Encrypting key for recipient...');
+        const identityResponse = await fetch(`/api/identities/${encodeURIComponent(recipient)}`);
+        const identityData = await identityResponse.json();
+        if (!identityResponse.ok || !identityData.ok) {
+          throw new Error('Recipient must enable an encryption identity first');
+        }
+        const recipientPublicKey = identityData.identity.publicKey as EncryptionPublicJwk;
+        const recipientEnvelope = await wrapFileKeyForRecipient(rawKey, recipientPublicKey);
+        payload = { ...payload, recipientAddress: recipient, recipientEnvelope };
+      } else if (passphrase.trim()) {
         const enc = new TextEncoder();
-        const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+        const webCrypto = globalThis.crypto;
         if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
         const salt = webCrypto.getRandomValues(new Uint8Array(16));
         const baseKey = await webCrypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
@@ -243,8 +344,80 @@ export default function UploadWizard() {
                 <span>Wraps AES key with PBKDF2 (200k) + AES-GCM.</span>
                 <span className={`badge ${strengthLabel(passphrase).className}`}>{strengthLabel(passphrase).label}</span>
               </div>
-              {!allowDemoRaw && <div className="text-[11px] text-yellow-300 mt-1">Passphrase is required.</div>}
+              {!vaultPolicy && !allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
             </div>
+          </div>
+
+          <div>
+            <label className="label">Self-destruct after downloads</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={10000}
+              value={maxDownloads}
+              onChange={(event) => setMaxDownloads(Math.max(0, parseInt(event.target.value || '0', 10)))}
+              disabled={Boolean(vaultPolicy)}
+            />
+            <div className="text-[11px] muted mt-1">
+              Use 0 for unlimited. The encrypted ciphertext is deleted after the final allowed download.
+            </div>
+            {vaultPolicy && <div className="text-[11px] text-yellow-300 mt-1">Not available for threshold-protected files yet.</div>}
+          </div>
+
+          <div>
+            <label className="label">Recipient wallet (E2EE)</label>
+            <input
+              type="text"
+              placeholder="Optional recipient 0x address"
+              value={recipientAddress}
+              onChange={(e) => setRecipientAddress(e.target.value)}
+              className="input"
+            />
+            <div className="text-[11px] muted mt-1">
+              When set, only this wallet can validate the token and decrypt the file key. Passphrase is ignored.
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Versioning</label>
+            <select
+              className="input"
+              value={parentFileId}
+              onChange={(event) => {
+                const nextParent = event.target.value;
+                setParentFileId(nextParent);
+                const target = versionTargets.find((candidate) => candidate.id === nextParent);
+                if (target) {
+                  setVaultId(target.vault_id || '');
+                  setTitle(target.title || target.name || '');
+                }
+              }}
+            >
+              <option value="">Create a new logical file</option>
+              {versionTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  New version of {target.title || target.name || target.id.slice(0, 8)} (v{target.version_number})
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] muted mt-1">Each version gets independent ciphertext, key material, and access tokens.</div>
+          </div>
+
+          <div>
+            <label className="label">Destination</label>
+            <select className="input" value={vaultId} disabled={Boolean(parentFileId)} onChange={(event) => setVaultId(event.target.value)}>
+              <option value="">Personal files</option>
+              {vaults.map((vault) => (
+                <option key={vault.id} value={vault.id}>{vault.name} ({vault.role})</option>
+              ))}
+            </select>
+            <div className="text-[11px] muted mt-1">Vault owners and editors can upload encrypted files.</div>
+            {vaultPolicy && (
+              <div className="text-[11px] text-cyan-300 mt-1">
+                Threshold protection enabled: {vaultPolicy.threshold} of {vaultPolicy.total_shares} approvals required.
+              </div>
+            )}
           </div>
 
           <div className="pt-2">

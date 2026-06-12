@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/Toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { getLocalEncryptionIdentity } from '@/lib/clientEncryptionIdentity';
+import { unwrapFileKeyFromRecipientEnvelope } from '@/lib/clientRecipientEnvelope';
+import type { RecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 
 function base64ToArrayBuffer(b64: string) {
   const bin = atob(b64);
@@ -34,9 +38,15 @@ type Meta = {
   salt?: string;
   ivWrap?: string;
   wrappedKey?: string;
+  recipientAddress?: string;
+  recipientEnvelope?: RecipientKeyEnvelope;
+  thresholdProtected?: boolean;
+  maxDownloads?: number;
+  remainingDownloads?: number;
 };
 
 export default function Downloader() {
+  const { address } = useAuth();
   const toast = useToast();
   const [token, setToken] = useState('');
   const [passphrase, setPassphrase] = useState('');
@@ -44,7 +54,10 @@ export default function Downloader() {
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [downloading, setDownloading] = useState(false);
-  const needsPass = useMemo(() => Boolean(meta && !meta.rawKeyBase64), [meta]);
+  const needsPass = useMemo(
+    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope && !meta.thresholdProtected),
+    [meta]
+  );
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -70,11 +83,15 @@ export default function Downloader() {
 
   async function downloadAndDecrypt() {
     if (!meta) return;
+    if (meta.thresholdProtected) {
+      toast.error('This file requires vault approvals. Use the dashboard approval workflow.');
+      return;
+    }
     setDownloading(true);
     setStatus('Fetching ciphertext…');
     setProgress(0);
     try {
-      const url = `/api/storage/get?cid=${encodeURIComponent(meta.cid)}`;
+      const url = `/api/storage/get?token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       if (!res.ok || !res.body) throw new Error('Fetch failed');
       const total = Number(res.headers.get('content-length') || 0);
@@ -98,10 +115,15 @@ export default function Downloader() {
       }
 
       setStatus('Decrypting…');
-      const webCrypto = globalThis.crypto || (globalThis as any).crypto;
+      const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
       let raw: ArrayBuffer;
-      if (meta.rawKeyBase64) {
+      if (meta.recipientEnvelope) {
+        if (!address) throw new Error('Connect the recipient wallet to decrypt this file');
+        const identity = await getLocalEncryptionIdentity(address);
+        if (!identity) throw new Error('This device does not have the recipient private key');
+        raw = await unwrapFileKeyFromRecipientEnvelope(meta.recipientEnvelope, identity.privateKey);
+      } else if (meta.rawKeyBase64) {
         raw = base64ToArrayBuffer(meta.rawKeyBase64);
       } else {
         if (!passphrase) throw new Error('Enter passphrase to decrypt key');
@@ -151,7 +173,7 @@ export default function Downloader() {
         <input type="text" placeholder="Enter token" value={token} onChange={(e) => setToken(e.target.value)} className="input" />
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={validate} disabled={!token}>Validate</button>
-          <button className="btn-primary" onClick={() => { if (!meta) validate().then(downloadAndDecrypt); else downloadAndDecrypt(); }} disabled={!token || downloading}>
+          <button className="btn-primary" onClick={() => { if (!meta) validate().then(downloadAndDecrypt); else downloadAndDecrypt(); }} disabled={!token || downloading || Boolean(meta?.thresholdProtected)}>
             {downloading ? 'Working…' : 'Download & Decrypt'}
           </button>
         </div>
@@ -170,13 +192,19 @@ export default function Downloader() {
             <div className="muted">Name</div><div>{meta.name || 'file'}</div>
             <div className="muted">Type</div><div>{meta.mime || 'application/octet-stream'}</div>
             <div className="muted">Size</div><div>{formatBytes(meta.sizeBytes || 0)}</div>
-            <div className="muted">Protection</div><div>{needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
+            <div className="muted">Protection</div>
+            <div>{meta.thresholdProtected ? 'Threshold approval required' : meta.recipientEnvelope ? 'Recipient wallet E2EE' : needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
+            <div className="muted">Downloads remaining</div>
+            <div>{meta.remainingDownloads ?? 'Unlimited'}</div>
           </div>
           {needsPass && (
             <div className="mt-3">
               <label className="label">Passphrase</label>
               <input type="password" placeholder="Enter passphrase" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} className="input" />
             </div>
+          )}
+          {meta.thresholdProtected && (
+            <div className="mt-3 text-xs text-cyan-300">Open Dashboard and create a threshold approval request for this file.</div>
           )}
         </div>
       )}

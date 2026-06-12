@@ -16,10 +16,11 @@
     "better-sqlite3": "^12.4.1",
     "ethers": "^6.15.0",
     "jose": "^6.1.0",
-    "next": "15.5.5",
+    "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "uuid": "^13.0.0"
+    "secrets.js-grempe": "^2.0.0",
+    "uuid": "^13.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -33,5 +34,9 @@
     "eslint-config-next": "15.5.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.10",
+    "ws": "8.20.1"
   }
 }
