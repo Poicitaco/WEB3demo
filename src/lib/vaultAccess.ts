@@ -30,3 +30,12 @@ export function canManageFile(db: Database.Database, fileId: string, address: st
   if (row.vault_id) return canWriteVault(getVaultRole(db, row.vault_id, address));
   return normalizeAddress(row.owner_address) === normalizeAddress(address);
 }
+
+export function canReadFile(db: Database.Database, fileId: string, address: string) {
+  const row = db.prepare(
+    'SELECT owner_address, vault_id FROM files WHERE id = ?'
+  ).get(fileId) as { owner_address: string; vault_id: string | null } | undefined;
+  if (!row) return false;
+  if (row.vault_id) return Boolean(getVaultRole(db, row.vault_id, address));
+  return normalizeAddress(row.owner_address) === normalizeAddress(address);
+}

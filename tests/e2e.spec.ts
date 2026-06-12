@@ -334,6 +334,78 @@ test.describe('Collaborative vault access control', () => {
   });
 });
 
+test.describe('Immutable file versioning', () => {
+  test('keeps old tokens bound to their exact version and enforces write access', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const outsider = await authenticatedRequest(baseURL);
+
+    const first = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Versioned document',
+        cid: 'immutable-version-v1',
+        fileName: 'document-v1.txt',
+        mime: 'text/plain',
+        sizeBytes: 10,
+        iv: Buffer.alloc(12, 12).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 13).toString('base64'),
+      },
+    });
+    expect(first.ok()).toBeTruthy();
+    const v1 = await first.json();
+    expect(v1.versionNumber).toBe(1);
+
+    const forbidden = await outsider.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(outsider.req) },
+      data: {
+        title: 'Forbidden version',
+        cid: 'forbidden-version',
+        fileName: 'forbidden.txt',
+        mime: 'text/plain',
+        sizeBytes: 10,
+        iv: Buffer.alloc(12, 14).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 15).toString('base64'),
+        parentFileId: v1.fileId,
+      },
+    });
+    expect(forbidden.status()).toBe(404);
+
+    const second = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Versioned document',
+        cid: 'immutable-version-v2',
+        fileName: 'document-v2.txt',
+        mime: 'text/plain',
+        sizeBytes: 20,
+        iv: Buffer.alloc(12, 16).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 17).toString('base64'),
+        parentFileId: v1.fileId,
+      },
+    });
+    expect(second.ok()).toBeTruthy();
+    const v2 = await second.json();
+    expect(v2.versionNumber).toBe(2);
+    expect(v2.logicalFileId).toBe(v1.logicalFileId);
+    expect(v2.fileId).not.toBe(v1.fileId);
+    expect(v2.token).not.toBe(v1.token);
+
+    const oldToken = await owner.req.post('/api/tokens/validate', { data: { token: v1.token } });
+    const newToken = await owner.req.post('/api/tokens/validate', { data: { token: v2.token } });
+    expect((await oldToken.json()).cid).toBe('immutable-version-v1');
+    expect((await newToken.json()).cid).toBe('immutable-version-v2');
+
+    const history = await owner.req.get(`/api/files/${v1.fileId}/versions`);
+    expect(history.ok()).toBeTruthy();
+    const historyBody = await history.json();
+    expect(historyBody.versions.map((version: { version_number: number }) => version.version_number)).toEqual([2, 1]);
+
+    await owner.req.dispose();
+    await outsider.req.dispose();
+  });
+});
+
 test.describe('Shamir threshold policy foundation', () => {
   test('recovers a secret from K encrypted member shares', async () => {
     const secret = webcrypto.getRandomValues(new Uint8Array(32)).buffer;

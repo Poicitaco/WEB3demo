@@ -20,6 +20,13 @@ type VaultMember = {
   address: string;
   encryptionIdentity: { publicKey: EncryptionPublicJwk } | null;
 };
+type VersionTarget = {
+  id: string;
+  title: string | null;
+  name: string | null;
+  vault_id: string | null;
+  version_number: number;
+};
 
 function strengthLabel(pw: string) {
   const len = pw.length;
@@ -58,6 +65,8 @@ export default function UploadWizard() {
   const [vaults, setVaults] = useState<VaultOption[]>([]);
   const [vaultPolicy, setVaultPolicy] = useState<{ threshold: number; total_shares: number } | null>(null);
   const [vaultMembers, setVaultMembers] = useState<VaultMember[]>([]);
+  const [parentFileId, setParentFileId] = useState('');
+  const [versionTargets, setVersionTargets] = useState<VersionTarget[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -74,6 +83,12 @@ export default function UploadWizard() {
         if (data.ok) setVaults((data.vaults as VaultOption[]).filter((vault) => vault.role !== 'viewer'));
       })
       .catch(() => setVaults([]));
+    fetch('/api/files/list')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.ok) setVersionTargets(data.files as VersionTarget[]);
+      })
+      .catch(() => setVersionTargets([]));
   }, [address]);
 
   useEffect(() => {
@@ -164,6 +179,7 @@ export default function UploadWizard() {
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
         vaultId: vaultId || undefined,
+        parentFileId: parentFileId || undefined,
       };
       if (vaultPolicy) {
         if (vaultMembers.length !== vaultPolicy.total_shares || vaultMembers.some((member) => !member.encryptionIdentity)) {
@@ -345,8 +361,33 @@ export default function UploadWizard() {
           </div>
 
           <div>
+            <label className="label">Versioning</label>
+            <select
+              className="input"
+              value={parentFileId}
+              onChange={(event) => {
+                const nextParent = event.target.value;
+                setParentFileId(nextParent);
+                const target = versionTargets.find((candidate) => candidate.id === nextParent);
+                if (target) {
+                  setVaultId(target.vault_id || '');
+                  setTitle(target.title || target.name || '');
+                }
+              }}
+            >
+              <option value="">Create a new logical file</option>
+              {versionTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  New version of {target.title || target.name || target.id.slice(0, 8)} (v{target.version_number})
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] muted mt-1">Each version gets independent ciphertext, key material, and access tokens.</div>
+          </div>
+
+          <div>
             <label className="label">Destination</label>
-            <select className="input" value={vaultId} onChange={(event) => setVaultId(event.target.value)}>
+            <select className="input" value={vaultId} disabled={Boolean(parentFileId)} onChange={(event) => setVaultId(event.target.value)}>
               <option value="">Personal files</option>
               {vaults.map((vault) => (
                 <option key={vault.id} value={vault.id}>{vault.name} ({vault.role})</option>

@@ -154,10 +154,19 @@ function migrate(d: Database.Database) {
   if (!names.has('vault_id')) {
     d.exec(`ALTER TABLE files ADD COLUMN vault_id TEXT REFERENCES vaults(id)`);
   }
+  if (!names.has('logical_file_id')) {
+    d.exec(`ALTER TABLE files ADD COLUMN logical_file_id TEXT`);
+    d.exec(`UPDATE files SET logical_file_id = id WHERE logical_file_id IS NULL`);
+  }
+  if (!names.has('version_number')) {
+    d.exec(`ALTER TABLE files ADD COLUMN version_number INTEGER NOT NULL DEFAULT 1`);
+  }
   d.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
     CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);
     CREATE INDEX IF NOT EXISTS idx_tokens_file_id ON tokens(file_id);
+    CREATE INDEX IF NOT EXISTS idx_files_logical_file_id ON files(logical_file_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_files_logical_version ON files(logical_file_id, version_number);
     CREATE INDEX IF NOT EXISTS idx_threshold_file_shares_member ON threshold_file_shares(member_address);
     CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON approval_requests(requester_address);
   `);

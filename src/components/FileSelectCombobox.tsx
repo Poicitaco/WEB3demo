@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type FileRow = {
   id: string; title: string | null; name: string | null; size_bytes: number | null; created_at: string;
-  vault_name?: string | null;
+  vault_name?: string | null; version_number?: number;
 };
 
 function formatBytes(n: number | null | undefined) {
@@ -111,7 +111,7 @@ export default function FileSelectCombobox({
           onClick={() => setOpen((v) => !v)}
         >
           <span className="truncate text-left">
-            {selected ? (selected.title || selected.name || selected.id.slice(0, 8)) : ph}
+            {selected ? `${selected.title || selected.name || selected.id.slice(0, 8)} · v${selected.version_number || 1}` : ph}
           </span>
           <span className="text-xs ml-2">▾</span>
         </button>
@@ -163,7 +163,7 @@ export default function FileSelectCombobox({
                     <div className="flex items-center gap-2">
                       <span className="text-base">{iconFor(f.name)}</span>
                       <div>
-                        <div className="text-sm">{f.title || f.name || f.id.slice(0,8)}</div>
+                        <div className="text-sm">{f.title || f.name || f.id.slice(0,8)} · v{f.version_number || 1}</div>
                         <div className="text-[11px] meta">{f.name || 'file'} • {formatBytes(f.size_bytes)} • {new Date(f.created_at).toLocaleDateString()}</div>
                       </div>
                     </div>

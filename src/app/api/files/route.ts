@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { verifyCsrf } from '@/lib/csrf';
 import { isRecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
-import { canWriteVault, getVaultRole } from '@/lib/vaultAccess';
+import { canManageFile, canWriteVault, getVaultRole } from '@/lib/vaultAccess';
 import { isThresholdShareEnvelope, type ThresholdShareEnvelope } from '@/lib/thresholdBundle';
 
 export const runtime = 'nodejs';
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     recipientEnvelope,
     vaultId,
     thresholdShares,
+    parentFileId,
   } = body as {
     title?: string;
     description?: string;
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
     recipientEnvelope?: unknown;
     vaultId?: string;
     thresholdShares?: unknown;
+    parentFileId?: string;
   };
   // Basic input validation
   if (!cid || !iv) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -94,22 +96,38 @@ export async function POST(req: Request) {
   }
 
   const db = getDb();
-  if (vaultId && !canWriteVault(getVaultRole(db, vaultId, address))) {
+  let logicalFileId: string = randomUUID();
+  let versionNumber = 1;
+  let effectiveVaultId = vaultId ?? null;
+  if (parentFileId) {
+    if (!canManageFile(db, parentFileId, address)) {
+      return NextResponse.json({ error: 'Parent file not found or forbidden' }, { status: 404 });
+    }
+    const parent = db.prepare(
+      'SELECT logical_file_id, vault_id FROM files WHERE id = ?'
+    ).get(parentFileId) as { logical_file_id: string | null; vault_id: string | null };
+    logicalFileId = parent.logical_file_id || parentFileId;
+    effectiveVaultId = parent.vault_id;
+    if ((vaultId ?? null) !== effectiveVaultId) {
+      return NextResponse.json({ error: 'A new version must remain in the same destination' }, { status: 400 });
+    }
+  }
+  if (effectiveVaultId && !canWriteVault(getVaultRole(db, effectiveVaultId, address))) {
     return NextResponse.json({ error: 'Vault write access required' }, { status: 403 });
   }
   let validatedThresholdShares: ThresholdShareEnvelope[] = [];
   let fileThreshold: { threshold: number; total_shares: number } | null = null;
   if (hasThresholdShares) {
-    if (!vaultId) return NextResponse.json({ error: 'Threshold shares require a vault' }, { status: 400 });
+    if (!effectiveVaultId) return NextResponse.json({ error: 'Threshold shares require a vault' }, { status: 400 });
     const policy = db.prepare(
       'SELECT threshold, total_shares FROM vault_threshold_policies WHERE vault_id = ? AND enabled = 1'
-    ).get(vaultId) as { threshold: number; total_shares: number } | undefined;
+    ).get(effectiveVaultId) as { threshold: number; total_shares: number } | undefined;
     if (!policy) return NextResponse.json({ error: 'Vault threshold policy is not enabled' }, { status: 400 });
     fileThreshold = policy;
     validatedThresholdShares = thresholdShares as ThresholdShareEnvelope[];
     const memberRows = db.prepare(
       'SELECT address FROM vault_members WHERE vault_id = ? ORDER BY created_at'
-    ).all(vaultId) as Array<{ address: string }>;
+    ).all(effectiveVaultId) as Array<{ address: string }>;
     const expected = new Set(memberRows.map((member) => member.address));
     const received = new Set(validatedThresholdShares.map((share) => normalizeAddress(share.memberAddress)));
     const indices = new Set(validatedThresholdShares.map((share) => share.shareIndex));
@@ -132,12 +150,18 @@ export async function POST(req: Request) {
   const ttlMs = (typeof ttlMinutes === 'number' && ttlMinutes > 0 ? ttlMinutes : 24 * 60) * 60 * 1000;
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   const saveFile = db.transaction(() => {
+    if (parentFileId) {
+      versionNumber = (db.prepare(
+        'SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version FROM files WHERE logical_file_id = ?'
+      ).get(logicalFileId) as { next_version: number }).next_version;
+    }
     db.prepare(
-      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64, vault_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64, vault_id, logical_file_id, version_number)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       fileId, address, titleTrim || null, description ?? null, cid, fileName ?? null,
-      mime ?? null, sizeBytes ?? null, ivBuf, saltBuf, ivWrapBuf, wrappedKeyBuf, rawKeyBase64 ?? null, vaultId ?? null
+      mime ?? null, sizeBytes ?? null, ivBuf, saltBuf, ivWrapBuf, wrappedKeyBuf, rawKeyBase64 ?? null,
+      effectiveVaultId, logicalFileId, versionNumber
     );
     db.prepare(
       `INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked)
@@ -182,5 +206,5 @@ export async function POST(req: Request) {
   });
   saveFile();
 
-  return NextResponse.json({ fileId, token });
+  return NextResponse.json({ fileId, token, logicalFileId, versionNumber });
 }
