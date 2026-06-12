@@ -41,6 +41,8 @@ type Meta = {
   recipientAddress?: string;
   recipientEnvelope?: RecipientKeyEnvelope;
   thresholdProtected?: boolean;
+  maxDownloads?: number;
+  remainingDownloads?: number;
 };
 
 export default function Downloader() {
@@ -89,7 +91,7 @@ export default function Downloader() {
     setStatus('Fetching ciphertext…');
     setProgress(0);
     try {
-      const url = `/api/storage/get?cid=${encodeURIComponent(meta.cid)}`;
+      const url = `/api/storage/get?token=${encodeURIComponent(token)}`;
       const res = await fetch(url);
       if (!res.ok || !res.body) throw new Error('Fetch failed');
       const total = Number(res.headers.get('content-length') || 0);
@@ -192,6 +194,8 @@ export default function Downloader() {
             <div className="muted">Size</div><div>{formatBytes(meta.sizeBytes || 0)}</div>
             <div className="muted">Protection</div>
             <div>{meta.thresholdProtected ? 'Threshold approval required' : meta.recipientEnvelope ? 'Recipient wallet E2EE' : needsPass ? 'Passphrase wrapped' : 'Raw key (demo)'}</div>
+            <div className="muted">Downloads remaining</div>
+            <div>{meta.remainingDownloads ?? 'Unlimited'}</div>
           </div>
           {needsPass && (
             <div className="mt-3">

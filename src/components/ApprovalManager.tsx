@@ -102,6 +102,7 @@ export default function ApprovalManager() {
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to load approval request');
       const request = data.request as {
+        id: string;
         threshold: number;
         approvalCount: number;
         contributions: Array<{ envelope: RecipientSecretEnvelope }>;
@@ -118,7 +119,7 @@ export default function ApprovalManager() {
         })
       );
       const rawKey = combineSecret(shares);
-      const cipherResponse = await fetch(`/api/storage/get?cid=${encodeURIComponent(request.cid)}`);
+      const cipherResponse = await fetch(`/api/storage/get?approvalRequestId=${encodeURIComponent(request.id)}`);
       if (!cipherResponse.ok) throw new Error('Failed to fetch ciphertext');
       const cipher = await cipherResponse.arrayBuffer();
       const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);

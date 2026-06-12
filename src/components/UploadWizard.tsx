@@ -59,6 +59,7 @@ export default function UploadWizard() {
   const [cid, setCid] = useState('');
   const [description, setDescription] = useState('');
   const [ttl, setTtl] = useState<number>(1440);
+  const [maxDownloads, setMaxDownloads] = useState<number>(0);
   const [passphrase, setPassphrase] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [vaultId, setVaultId] = useState('');
@@ -178,6 +179,7 @@ export default function UploadWizard() {
         sizeBytes: file.size,
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
+        maxDownloads: maxDownloads > 0 ? maxDownloads : undefined,
         vaultId: vaultId || undefined,
         parentFileId: parentFileId || undefined,
       };
@@ -344,6 +346,23 @@ export default function UploadWizard() {
               </div>
               {!vaultPolicy && !allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
             </div>
+          </div>
+
+          <div>
+            <label className="label">Self-destruct after downloads</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={10000}
+              value={maxDownloads}
+              onChange={(event) => setMaxDownloads(Math.max(0, parseInt(event.target.value || '0', 10)))}
+              disabled={Boolean(vaultPolicy)}
+            />
+            <div className="text-[11px] muted mt-1">
+              Use 0 for unlimited. The encrypted ciphertext is deleted after the final allowed download.
+            </div>
+            {vaultPolicy && <div className="text-[11px] text-yellow-300 mt-1">Not available for threshold-protected files yet.</div>}
           </div>
 
           <div>

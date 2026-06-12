@@ -30,11 +30,15 @@ export async function POST(req: Request) {
     envelope_iv?: Buffer | null;
     envelope_wrapped_key?: Buffer | null;
     threshold_file_id?: string | null;
+    max_downloads?: number | null;
+    download_count: number;
+    destroyed_at?: string | null;
   };
   const row = db
     .prepare(
       `SELECT t.token, t.file_id, t.expires_at, t.revoked, t.issued_to_address,
               f.cid, f.iv, f.salt, f.iv_wrap, f.wrapped_key, f.raw_key_base64, f.name, f.mime, f.size_bytes,
+              f.max_downloads, f.download_count, f.destroyed_at,
               e.algorithm AS envelope_algorithm, e.ephemeral_public_key_jwk,
               e.salt AS envelope_salt, e.iv AS envelope_iv, e.wrapped_key AS envelope_wrapped_key
               , tf.file_id AS threshold_file_id
@@ -50,6 +54,7 @@ export async function POST(req: Request) {
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
     return NextResponse.json({ ok: false, error: 'Expired' }, { status: 403 });
   }
+  if (row.destroyed_at) return NextResponse.json({ ok: false, error: 'File has self-destructed' }, { status: 410 });
   if (row.issued_to_address) {
     const sessionAddress = await getSessionAddress();
     if (!sessionAddress || normalizeAddress(sessionAddress) !== normalizeAddress(row.issued_to_address)) {
@@ -80,5 +85,7 @@ export async function POST(req: Request) {
     recipientAddress: row.issued_to_address ? normalizeAddress(row.issued_to_address) : undefined,
     recipientEnvelope,
     thresholdProtected: Boolean(row.threshold_file_id),
+    maxDownloads: row.max_downloads ?? undefined,
+    remainingDownloads: row.max_downloads == null ? undefined : Math.max(0, row.max_downloads - row.download_count),
   });
 }

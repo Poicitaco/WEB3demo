@@ -11,10 +11,11 @@ export async function GET() {
   type Row = {
     token: string; file_id: string; issued_to_address: string | null; revoked: number; expires_at: string | null; created_at: string;
     title: string | null; name: string | null; size_bytes: number | null;
+    max_downloads: number | null; download_count: number; destroyed_at: string | null;
   };
   const rows = db.prepare(
     `SELECT t.token, t.file_id, t.issued_to_address, t.revoked, t.expires_at, t.created_at,
-            f.title, f.name, f.size_bytes
+            f.title, f.name, f.size_bytes, f.max_downloads, f.download_count, f.destroyed_at
      FROM tokens t
      JOIN files f ON f.id = t.file_id
      LEFT JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?

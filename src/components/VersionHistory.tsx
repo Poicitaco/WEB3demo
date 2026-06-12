@@ -12,6 +12,9 @@ type Version = {
   size_bytes: number | null;
   owner_address: string;
   created_at: string;
+  max_downloads: number | null;
+  download_count: number;
+  destroyed_at: string | null;
 };
 
 export default function VersionHistory() {
@@ -43,6 +46,7 @@ export default function VersionHistory() {
                 <th className="py-2 pr-3">Version</th>
                 <th className="py-2 pr-3">Filename</th>
                 <th className="py-2 pr-3">Created</th>
+                <th className="py-2 pr-3">Availability</th>
                 <th className="py-2 pr-3">ID</th>
               </tr>
             </thead>
@@ -52,6 +56,9 @@ export default function VersionHistory() {
                   <td className="py-2 pr-3">v{version.version_number}</td>
                   <td className="py-2 pr-3">{version.name || version.title || 'file'}</td>
                   <td className="py-2 pr-3">{new Date(version.created_at).toLocaleString()}</td>
+                  <td className="py-2 pr-3">
+                    {version.destroyed_at ? 'Destroyed' : version.max_downloads == null ? 'Unlimited' : `${Math.max(0, version.max_downloads - version.download_count)} downloads left`}
+                  </td>
                   <td className="py-2 pr-3 font-mono text-xs">{version.id.slice(0, 8)}...</td>
                 </tr>
               ))}

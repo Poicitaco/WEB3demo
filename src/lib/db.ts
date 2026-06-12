@@ -161,6 +161,15 @@ function migrate(d: Database.Database) {
   if (!names.has('version_number')) {
     d.exec(`ALTER TABLE files ADD COLUMN version_number INTEGER NOT NULL DEFAULT 1`);
   }
+  if (!names.has('max_downloads')) {
+    d.exec(`ALTER TABLE files ADD COLUMN max_downloads INTEGER`);
+  }
+  if (!names.has('download_count')) {
+    d.exec(`ALTER TABLE files ADD COLUMN download_count INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!names.has('destroyed_at')) {
+    d.exec(`ALTER TABLE files ADD COLUMN destroyed_at DATETIME`);
+  }
   d.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
     CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);

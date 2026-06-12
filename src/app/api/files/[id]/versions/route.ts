@@ -18,7 +18,8 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   ).get(id) as { logical_file_id: string | null };
   const logicalFileId = file.logical_file_id || id;
   const versions = db.prepare(
-    `SELECT id, logical_file_id, version_number, title, name, mime, size_bytes, owner_address, created_at
+    `SELECT id, logical_file_id, version_number, title, name, mime, size_bytes, owner_address, created_at,
+            max_downloads, download_count, destroyed_at
      FROM files WHERE logical_file_id = ? ORDER BY version_number DESC`
   ).all(logicalFileId);
   return NextResponse.json({ ok: true, logicalFileId, versions });

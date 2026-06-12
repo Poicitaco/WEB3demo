@@ -406,6 +406,61 @@ test.describe('Immutable file versioning', () => {
   });
 });
 
+test.describe('Self-destructing files', () => {
+  test('deletes ciphertext after the configured number of downloads', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const ciphertext = Buffer.from(`self-destruct-${Date.now()}`);
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'ciphertext.bin',
+          mimeType: 'application/octet-stream',
+          buffer: ciphertext,
+        },
+      },
+    });
+    expect(upload.ok()).toBeTruthy();
+    const { cid } = await upload.json();
+
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Burn after reading twice',
+        cid,
+        fileName: 'burn.txt',
+        mime: 'text/plain',
+        sizeBytes: ciphertext.length,
+        iv: Buffer.alloc(12, 18).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 19).toString('base64'),
+        maxDownloads: 2,
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+    const { token } = await create.json();
+
+    const directCidAttempt = await owner.req.get(`/api/storage/get?cid=${encodeURIComponent(cid)}`);
+    expect(directCidAttempt.status()).toBe(400);
+
+    const first = await owner.req.get(`/api/storage/get?token=${encodeURIComponent(token)}`);
+    expect(first.ok()).toBeTruthy();
+    expect(Buffer.from(await first.body())).toEqual(ciphertext);
+    const afterFirst = await owner.req.post('/api/tokens/validate', { data: { token } });
+    expect((await afterFirst.json()).remainingDownloads).toBe(1);
+
+    const second = await owner.req.get(`/api/storage/get?token=${encodeURIComponent(token)}`);
+    expect(second.ok()).toBeTruthy();
+    expect(Buffer.from(await second.body())).toEqual(ciphertext);
+    const afterSecond = await owner.req.post('/api/tokens/validate', { data: { token } });
+    expect(afterSecond.status()).toBe(410);
+
+    const third = await owner.req.get(`/api/storage/get?token=${encodeURIComponent(token)}`);
+    expect(third.status()).toBe(410);
+    await owner.req.dispose();
+  });
+});
+
 test.describe('Shamir threshold policy foundation', () => {
   test('recovers a secret from K encrypted member shares', async () => {
     const secret = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
@@ -544,6 +599,8 @@ test.describe('Threshold approval sessions', () => {
     const { fileId, token: thresholdToken } = await createFile.json();
     const thresholdTokenValidation = await owner.req.post('/api/tokens/validate', { data: { token: thresholdToken } });
     expect((await thresholdTokenValidation.json()).thresholdProtected).toBeTruthy();
+    const thresholdTokenStorage = await owner.req.get(`/api/storage/get?token=${encodeURIComponent(thresholdToken)}`);
+    expect(thresholdTokenStorage.status()).toBe(403);
     const bypassAttempt = await owner.req.post('/api/files', {
       headers: { 'x-csrf': await csrfFor(owner.req) },
       data: {
