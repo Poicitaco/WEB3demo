@@ -4,6 +4,7 @@ import { getSessionAddress } from '@/lib/auth';
 import { verifyCsrf } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
       .run(vaultId, cleanName, description?.trim() || null, owner);
     db.prepare('INSERT INTO vault_members (vault_id, address, role, added_by) VALUES (?, ?, ?, ?)')
       .run(vaultId, owner, 'owner', owner);
+    recordAudit(db, { actorAddress: owner, action: 'vault.created', resourceType: 'vault', resourceId: vaultId });
   })();
   return NextResponse.json({ ok: true, vaultId });
 }

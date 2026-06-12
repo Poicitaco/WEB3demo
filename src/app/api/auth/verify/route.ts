@@ -2,10 +2,17 @@ import { NextResponse } from 'next/server';
 import { clearNonceCookie, setSessionCookie, getNonceCookie } from '@/lib/auth';
 import { signSession } from '@/lib/jwt';
 import { ethers } from 'ethers';
+import { consumeRateLimit, rateLimitHeaders, requestIdentifier } from '@/lib/rateLimit';
+import { getDb } from '@/lib/db';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  const rateLimit = consumeRateLimit('auth:verify', requestIdentifier(req), 20, 60);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: 'Too many verification attempts' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
+  }
   const body = await req.json().catch(() => ({}));
   const { address, signature } = body as { address?: string; signature?: string };
   if (!address || !signature) return NextResponse.json({ error: 'Missing params' }, { status: 400 });
@@ -29,5 +36,6 @@ export async function POST(req: Request) {
   await clearNonceCookie();
   const token = await signSession(address);
   await setSessionCookie(token);
-  return NextResponse.json({ ok: true, address });
+  recordAudit(getDb(), { actorAddress: address, action: 'auth.login', resourceType: 'auth' });
+  return NextResponse.json({ ok: true, address }, { headers: rateLimitHeaders(rateLimit) });
 }

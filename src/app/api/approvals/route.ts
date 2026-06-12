@@ -5,6 +5,7 @@ import { verifyCsrf } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { getVaultRole } from '@/lib/vaultAccess';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -55,9 +56,12 @@ export async function POST(req: Request) {
   const requestId = randomUUID();
   const ttl = Math.min(Math.max(ttlMinutes ?? 60, 10), 1440);
   const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
-  db.prepare(
-    `INSERT INTO approval_requests (id, file_id, requester_address, threshold, expires_at)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(requestId, fileId, normalized, file.threshold, expiresAt);
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO approval_requests (id, file_id, requester_address, threshold, expires_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(requestId, fileId, normalized, file.threshold, expiresAt);
+    recordAudit(db, { actorAddress: normalized, action: 'approval.requested', resourceType: 'file', resourceId: fileId, metadata: { requestId, threshold: file.threshold } });
+  })();
   return NextResponse.json({ ok: true, requestId, threshold: file.threshold, expiresAt });
 }

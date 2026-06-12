@@ -9,6 +9,7 @@ import {
   isEncryptionPublicJwk,
   normalizeAddress,
 } from '@/lib/encryptionIdentity';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -47,15 +48,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Wallet signature does not match session' }, { status: 403 });
   }
 
-  getDb().prepare(
-    `INSERT INTO encryption_identities (address, algorithm, public_key_jwk, wallet_signature)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(address) DO UPDATE SET
-       algorithm = excluded.algorithm,
-       public_key_jwk = excluded.public_key_jwk,
-       wallet_signature = excluded.wallet_signature,
-       updated_at = CURRENT_TIMESTAMP`
-  ).run(address, ENCRYPTION_IDENTITY_ALGORITHM, JSON.stringify(body.publicKey), body.signature);
+  const db = getDb();
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO encryption_identities (address, algorithm, public_key_jwk, wallet_signature)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(address) DO UPDATE SET
+         algorithm = excluded.algorithm,
+         public_key_jwk = excluded.public_key_jwk,
+         wallet_signature = excluded.wallet_signature,
+         updated_at = CURRENT_TIMESTAMP`
+    ).run(address, ENCRYPTION_IDENTITY_ALGORITHM, JSON.stringify(body.publicKey), body.signature);
+    recordAudit(db, { actorAddress: address, action: 'identity.registered', resourceType: 'identity', resourceId: address });
+  })();
 
   return NextResponse.json({ ok: true, address, algorithm: ENCRYPTION_IDENTITY_ALGORITHM });
 }

@@ -4,6 +4,7 @@ import { verifyCsrf } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { isRecipientSecretEnvelope } from '@/lib/recipientEnvelope';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -19,13 +20,13 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   const db = getDb();
   const normalized = normalizeAddress(address);
   const row = db.prepare(
-    `SELECT r.threshold, r.expires_at, s.share_index
+    `SELECT r.file_id, r.threshold, r.expires_at, s.share_index
      FROM approval_requests r
      JOIN files f ON f.id = r.file_id
      JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?
      JOIN threshold_file_shares s ON s.file_id = r.file_id AND s.member_address = m.address
      WHERE r.id = ? AND r.status = 'pending'`
-  ).get(normalized, id) as { threshold: number; expires_at: string; share_index: number } | undefined;
+  ).get(normalized, id) as { file_id: string; threshold: number; expires_at: string; share_index: number } | undefined;
   if (!row) return NextResponse.json({ ok: false, error: 'Not an active approver' }, { status: 403 });
   if (new Date(row.expires_at).getTime() < Date.now()) {
     return NextResponse.json({ ok: false, error: 'Request expired' }, { status: 403 });
@@ -50,6 +51,13 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       'SELECT COUNT(*) AS count FROM approval_contributions WHERE request_id = ?'
     ).get(id) as { count: number }).count;
     if (count >= row.threshold) db.prepare(`UPDATE approval_requests SET status = 'approved' WHERE id = ?`).run(id);
+    recordAudit(db, {
+      actorAddress: normalized,
+      action: 'approval.contributed',
+      resourceType: 'file',
+      resourceId: row.file_id,
+      metadata: { requestId: id, approvalCount: count, threshold: row.threshold },
+    });
     return count;
   })();
   return NextResponse.json({ ok: true, approvalCount: result, threshold: row.threshold });

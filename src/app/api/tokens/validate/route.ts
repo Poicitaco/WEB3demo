@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSessionAddress } from '@/lib/auth';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
+import { consumeRateLimit, rateLimitHeaders, requestIdentifier } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  const rateLimit = consumeRateLimit('token:validate', requestIdentifier(req), 120, 60);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: 'Too many token validation attempts' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
+  }
   const { token } = (await req.json().catch(() => ({}))) as { token?: string };
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
   const db = getDb();
@@ -87,5 +92,5 @@ export async function POST(req: Request) {
     thresholdProtected: Boolean(row.threshold_file_id),
     maxDownloads: row.max_downloads ?? undefined,
     remainingDownloads: row.max_downloads == null ? undefined : Math.max(0, row.max_downloads - row.download_count),
-  });
+  }, { headers: rateLimitHeaders(rateLimit) });
 }

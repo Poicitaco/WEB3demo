@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { verifyCsrf } from '@/lib/csrf';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { canManageFile } from '@/lib/vaultAccess';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -27,8 +28,17 @@ export async function POST(req: Request) {
   const token = randomUUID();
   const ttl = (typeof ttlMinutes === 'number' && ttlMinutes > 0 ? ttlMinutes : 24 * 60) * 60 * 1000;
   const expiresAt = new Date(Date.now() + ttl).toISOString();
-  db.prepare('INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked) VALUES (?, ?, ?, ?, 0)')
-    .run(token, fileId, recipient ? normalizeAddress(recipient) : null, expiresAt);
+  db.transaction(() => {
+    db.prepare('INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked) VALUES (?, ?, ?, ?, 0)')
+      .run(token, fileId, recipient ? normalizeAddress(recipient) : null, expiresAt);
+    recordAudit(db, {
+      actorAddress: address,
+      action: 'token.issued',
+      resourceType: 'file',
+      resourceId: fileId,
+      metadata: { fileId, recipientRestricted: Boolean(recipient), ttlMinutes: typeof ttlMinutes === 'number' ? ttlMinutes : 1440 },
+    });
+  })();
   return NextResponse.json({ ok: true, token, expiresAt });
 }
 

@@ -22,6 +22,8 @@ import {
   encryptThresholdShares,
   splitSecret,
 } from '../src/lib/clientThresholdShares';
+import { consumeRateLimit } from '../src/lib/rateLimit';
+import { getDb } from '../src/lib/db';
 
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
@@ -152,6 +154,49 @@ test.describe('Encryption identity API', () => {
     });
     expect(register.status()).toBe(403);
     await req.dispose();
+  });
+});
+
+test.describe('Security hardening', () => {
+  test('enforces persistent rate limits', () => {
+    const scope = `test:${Date.now()}:${Math.random()}`;
+    const identifier = 'test-client';
+    expect(consumeRateLimit(scope, identifier, 2, 60).allowed).toBeTruthy();
+    expect(consumeRateLimit(scope, identifier, 2, 60).allowed).toBeTruthy();
+    const blocked = consumeRateLimit(scope, identifier, 2, 60);
+    expect(blocked.allowed).toBeFalsy();
+    expect(blocked.remaining).toBe(0);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  test('exposes authorized immutable audit events', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Audited file',
+        cid: `audit-${Date.now()}`,
+        fileName: 'audit.txt',
+        mime: 'text/plain',
+        sizeBytes: 5,
+        iv: Buffer.alloc(12, 20).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 21).toString('base64'),
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+    const { fileId } = await create.json();
+    const audit = await owner.req.get('/api/audit');
+    expect(audit.ok()).toBeTruthy();
+    const events = (await audit.json()).events as Array<{ id: string; action: string; resource_id: string }>;
+    const event = events.find((candidate) => candidate.action === 'file.created' && candidate.resource_id === fileId);
+    expect(event).toBeTruthy();
+    expect(() => getDb().prepare('UPDATE audit_events SET outcome = ? WHERE id = ?').run('failure', event!.id)).toThrow(/immutable/);
+
+    const anonymous = await request.newContext({ baseURL });
+    expect((await anonymous.get('/api/audit')).status()).toBe(401);
+    await anonymous.dispose();
+    await owner.req.dispose();
   });
 });
 

@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db';
 import { getSessionAddress } from '@/lib/auth';
 import { verifyCsrf } from '@/lib/csrf';
 import { canManageFile } from '@/lib/vaultAccess';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
   if (!row || !canManageFile(db, row.file_id, address)) {
     return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
   }
-  db.prepare(`UPDATE tokens SET revoked = 1 WHERE token = ?`).run(token);
+  db.transaction(() => {
+    db.prepare(`UPDATE tokens SET revoked = 1 WHERE token = ?`).run(token);
+    recordAudit(db, { actorAddress: address, action: 'token.revoked', resourceType: 'file', resourceId: row.file_id });
+  })();
   return NextResponse.json({ ok: true });
 }
 

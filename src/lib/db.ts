@@ -144,6 +144,25 @@ function migrate(d: Database.Database) {
       PRIMARY KEY(request_id, approver_address),
       FOREIGN KEY(request_id) REFERENCES approval_requests(id)
     );
+
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      scope TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      window_start INTEGER NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(scope, identifier, window_start)
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id TEXT PRIMARY KEY,
+      actor_address TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT,
+      outcome TEXT NOT NULL CHECK(outcome IN ('success', 'denied', 'failure')),
+      metadata_json TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   // Ensure columns exist if DB was created before adding new fields
   const info = d.prepare(`PRAGMA table_info(files)`).all() as Array<{ name: string }>;
@@ -178,5 +197,12 @@ function migrate(d: Database.Database) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_files_logical_version ON files(logical_file_id, version_number);
     CREATE INDEX IF NOT EXISTS idx_threshold_file_shares_member ON threshold_file_shares(member_address);
     CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON approval_requests(requester_address);
+    CREATE INDEX IF NOT EXISTS idx_audit_events_actor ON audit_events(actor_address, created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_events_resource ON audit_events(resource_type, resource_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
+    CREATE TRIGGER IF NOT EXISTS audit_events_no_update
+      BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit events are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS audit_events_no_delete
+      BEFORE DELETE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit events are immutable'); END;
   `);
 }

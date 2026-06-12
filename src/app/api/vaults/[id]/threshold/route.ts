@@ -4,6 +4,7 @@ import { verifyCsrf } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { canManageVault, getVaultRole } from '@/lib/vaultAccess';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -47,16 +48,25 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
       { status: 400 }
     );
   }
-  db.prepare(
-    `INSERT INTO vault_threshold_policies (vault_id, threshold, total_shares, enabled, updated_by)
-     VALUES (?, ?, ?, 1, ?)
-     ON CONFLICT(vault_id) DO UPDATE SET
-       threshold = excluded.threshold,
-       total_shares = excluded.total_shares,
-       enabled = 1,
-       updated_by = excluded.updated_by,
-       updated_at = CURRENT_TIMESTAMP`
-  ).run(id, threshold, members.length, normalizeAddress(address));
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO vault_threshold_policies (vault_id, threshold, total_shares, enabled, updated_by)
+       VALUES (?, ?, ?, 1, ?)
+       ON CONFLICT(vault_id) DO UPDATE SET
+         threshold = excluded.threshold,
+         total_shares = excluded.total_shares,
+         enabled = 1,
+         updated_by = excluded.updated_by,
+         updated_at = CURRENT_TIMESTAMP`
+    ).run(id, threshold, members.length, normalizeAddress(address));
+    recordAudit(db, {
+      actorAddress: address,
+      action: 'vault.threshold_configured',
+      resourceType: 'vault',
+      resourceId: id,
+      metadata: { threshold, totalShares: members.length },
+    });
+  })();
   return NextResponse.json({ ok: true, policy: { threshold, totalShares: members.length } });
 }
 
@@ -69,6 +79,9 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
   if (!canManageVault(getVaultRole(db, id, address))) {
     return NextResponse.json({ ok: false, error: 'Only the vault owner can disable threshold approval' }, { status: 403 });
   }
-  db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM vault_threshold_policies WHERE vault_id = ?').run(id);
+    recordAudit(db, { actorAddress: address, action: 'vault.threshold_disabled', resourceType: 'vault', resourceId: id });
+  })();
   return NextResponse.json({ ok: true });
 }

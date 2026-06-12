@@ -7,6 +7,7 @@ import { isRecipientKeyEnvelope } from '@/lib/recipientEnvelope';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { canManageFile, canWriteVault, getVaultRole } from '@/lib/vaultAccess';
 import { isThresholdShareEnvelope, type ThresholdShareEnvelope } from '@/lib/thresholdBundle';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -212,6 +213,13 @@ export async function POST(req: Request) {
         'INSERT INTO threshold_files (file_id, threshold, total_shares) VALUES (?, ?, ?)'
       ).run(fileId, fileThreshold.threshold, fileThreshold.total_shares);
     }
+    recordAudit(db, {
+      actorAddress: address,
+      action: parentFileId ? 'file.version_created' : 'file.created',
+      resourceType: 'file',
+      resourceId: fileId,
+      metadata: { logicalFileId, versionNumber, vaultId: effectiveVaultId, maxDownloads: normalizedMaxDownloads },
+    });
   });
   saveFile();
 

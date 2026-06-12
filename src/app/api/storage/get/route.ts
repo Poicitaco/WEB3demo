@@ -3,10 +3,16 @@ import { getCiphertext, ciphertextExists } from '@/lib/storage';
 import { getDb } from '@/lib/db';
 import { getSessionAddress } from '@/lib/auth';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
+import { consumeRateLimit, rateLimitHeaders, requestIdentifier } from '@/lib/rateLimit';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
+  const rateLimit = consumeRateLimit('storage:download', requestIdentifier(req), 240, 60);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: 'Download rate limit exceeded' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
+  }
   const { searchParams } = new URL(req.url);
   const token = searchParams.get('token');
   const approvalRequestId = searchParams.get('approvalRequestId');
@@ -15,14 +21,17 @@ export async function GET(req: Request) {
     const address = await getSessionAddress();
     if (!address) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const approved = db.prepare(
-      `SELECT f.cid, r.expires_at FROM approval_requests r JOIN files f ON f.id = r.file_id
+      `SELECT f.id AS file_id, f.cid, r.expires_at FROM approval_requests r JOIN files f ON f.id = r.file_id
        WHERE r.id = ? AND r.requester_address = ? AND r.status = 'approved'
          AND f.destroyed_at IS NULL`
-    ).get(approvalRequestId, normalizeAddress(address)) as { cid: string; expires_at: string } | undefined;
+    ).get(approvalRequestId, normalizeAddress(address)) as { file_id: string; cid: string; expires_at: string } | undefined;
     if (!approved || new Date(approved.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: 'Approval request not found or unavailable' }, { status: 404 });
     }
-    return getCiphertext(approved.cid);
+    recordAudit(db, { actorAddress: address, action: 'file.downloaded', resourceType: 'file', resourceId: approved.file_id, metadata: { via: 'threshold_approval' } });
+    const response = await getCiphertext(approved.cid);
+    Object.entries(rateLimitHeaders(rateLimit)).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
   }
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
   const row = db.prepare(
@@ -73,5 +82,14 @@ export async function GET(req: Request) {
       destroyAfterRead = activeReferences.count === 0;
     }
   }
-  return getCiphertext(row.cid, destroyAfterRead);
+  recordAudit(db, {
+    actorAddress: await getSessionAddress(),
+    action: 'file.downloaded',
+    resourceType: 'file',
+    resourceId: row.file_id,
+    metadata: { via: 'token', selfDestructed: destroyAfterRead },
+  });
+  const response = await getCiphertext(row.cid, destroyAfterRead);
+  Object.entries(rateLimitHeaders(rateLimit)).forEach(([key, value]) => response.headers.set(key, value));
+  return response;
 }

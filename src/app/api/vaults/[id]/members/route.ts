@@ -4,6 +4,7 @@ import { verifyCsrf } from '@/lib/csrf';
 import { getDb } from '@/lib/db';
 import { normalizeAddress } from '@/lib/encryptionIdentity';
 import { canManageVault, getVaultRole, isVaultRole } from '@/lib/vaultAccess';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -70,6 +71,13 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       `UPDATE approval_requests SET status = 'cancelled'
        WHERE status = 'pending' AND file_id IN (SELECT id FROM files WHERE vault_id = ?)`
     ).run(id);
+    recordAudit(db, {
+      actorAddress: address,
+      action: 'vault.member_upserted',
+      resourceType: 'vault',
+      resourceId: id,
+      metadata: { memberAddress: target, role },
+    });
   })();
   return NextResponse.json({ ok: true });
 }
@@ -98,6 +106,13 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
       `UPDATE approval_requests SET status = 'cancelled'
        WHERE status = 'pending' AND file_id IN (SELECT id FROM files WHERE vault_id = ?)`
     ).run(id);
+    recordAudit(db, {
+      actorAddress: address,
+      action: 'vault.member_removed',
+      resourceType: 'vault',
+      resourceId: id,
+      metadata: { memberAddress: member },
+    });
   })();
   return NextResponse.json({ ok: true });
 }
