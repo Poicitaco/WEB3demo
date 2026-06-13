@@ -189,6 +189,9 @@ function migrate(d: Database.Database) {
   if (!names.has('destroyed_at')) {
     d.exec(`ALTER TABLE files ADD COLUMN destroyed_at DATETIME`);
   }
+  if (!names.has('access_mode')) {
+    d.exec(`ALTER TABLE files ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'download' CHECK(access_mode IN ('download', 'view'))`);
+  }
   d.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
     CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);

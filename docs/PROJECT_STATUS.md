@@ -41,5 +41,8 @@ These items are not required for the classroom prototype:
 - [x] UI/UX handoff contract
 - [x] Classroom demo guide
 - [ ] Final UI/UX implementation
+- [x] Document inbox, operational metrics, search/filter, and audit activity feed
+- [x] Software-engineering architecture and test-plan documentation
+- [x] CI verification for lint, production build, and E2E
 - [ ] Screenshots and report updates
 - [ ] Final presentation rehearsal

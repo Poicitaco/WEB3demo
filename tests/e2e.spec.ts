@@ -25,6 +25,30 @@ import {
 import { consumeRateLimit } from '../src/lib/rateLimit';
 import { getDb } from '../src/lib/db';
 
+test('public pages hydrate without React mismatch warnings', async ({ page }) => {
+  test.setTimeout(90_000);
+  const hydrationErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /hydration|hydrated|server rendered html/i.test(message.text())) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
+  for (const path of ['/', '/upload', '/download', '/dashboard']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(750);
+  }
+
+  expect(hydrationErrors).toEqual([]);
+});
+
+test('download actions require an authenticated wallet session', async ({ page }) => {
+  await page.goto('/download?token=missing-token');
+  await expect(page.getByText('Kết nối ví trước khi mở tài liệu')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Validate' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Download & Decrypt/ })).toBeDisabled();
+});
+
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
   const start = await req.post('/api/auth/start');
@@ -158,6 +182,18 @@ test.describe('Encryption identity API', () => {
 });
 
 test.describe('Security hardening', () => {
+  test('rejects unauthenticated access to private workspace APIs', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const anonymous = await request.newContext({ baseURL });
+    for (const path of ['/api/files/list', '/api/vaults', '/api/approvals', '/api/tokens/list', '/api/audit']) {
+      const response = await anonymous.get(path);
+      expect(response.status(), `${path} must require a session`).toBe(401);
+    }
+    const createVault = await anonymous.post('/api/vaults', { data: { name: 'Unauthorized' } });
+    expect(createVault.status()).toBe(401);
+    await anonymous.dispose();
+  });
+
   test('enforces persistent rate limits', () => {
     const scope = `test:${Date.now()}:${Math.random()}`;
     const identifier = 'test-client';
@@ -261,7 +297,7 @@ test.describe('Recipient-restricted E2EE sharing', () => {
 
     const anonymous = await request.newContext({ baseURL });
     const anonymousValidation = await anonymous.post('/api/tokens/validate', { data: { token } });
-    expect(anonymousValidation.status()).toBe(403);
+    expect(anonymousValidation.status()).toBe(401);
 
     const recipientValidation = await recipient.req.post('/api/tokens/validate', { data: { token } });
     expect(recipientValidation.ok()).toBeTruthy();
@@ -737,20 +773,47 @@ test.describe('Upload/Download - passphrase flow', () => {
       mimeType: 'text/plain',
       buffer: Buffer.from('Hello secure world'),
     });
-    await page.getByPlaceholder('My encrypted document').fill('Playwright Test');
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Playwright Test');
     await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: /Cho phép tải gói mã hóa/ }).click();
     await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
-    await page.getByText('Share token').waitFor();
+    await page.getByText('Mã truy cập').waitFor();
     await page.getByRole('link', { name: 'Open download' }).click();
     await page.getByRole('button', { name: 'Validate' }).click();
-    await page.getByText('Ready').waitFor();
+    await page.getByText('Sẵn sàng').waitFor();
     await page.locator('input[type="password"]').fill('pass1234-Strong');
-    const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await expect(page.locator('.protected-reader-stage')).toContainText('Hello secure world');
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Tải gói mã hóa' }).click();
     const download = await downloadPromise;
     const path = await download.path();
     expect(path).toBeTruthy();
-    expect(download.suggestedFilename()).toContain('hello.txt');
+    expect(download.suggestedFilename()).toContain('hello.txt.vaultline');
+  });
+
+  test('opens a protected text file inside the viewer', async ({ page, context, baseURL }) => {
+    if (!baseURL) test.skip();
+    const session = await loginSession(baseURL);
+    await context.addCookies([{ name: 'session', value: session, domain: 'localhost', path: '/' }]);
+
+    await page.goto('/upload');
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'viewer-note.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Protected viewer content'),
+    });
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Viewer Test');
+    await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
+    await page.getByText('Mã truy cập').waitFor();
+    await page.getByRole('link', { name: 'Open download' }).click();
+    await page.getByRole('button', { name: 'Validate' }).click();
+    await page.getByText('Sẵn sàng').waitFor();
+    await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await expect(page.locator('.protected-reader')).toBeVisible();
+    await expect(page.locator('.protected-reader-stage')).toContainText('Protected viewer content');
   });
 });
 
@@ -767,18 +830,14 @@ test.describe('Upload/Download - demo raw key flow', () => {
       mimeType: 'text/plain',
       buffer: Buffer.from('Raw key demo'),
     });
-    await page.getByPlaceholder('My encrypted document').fill('Demo File');
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Demo File');
     await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
-    await page.getByText('Share token').waitFor();
+    await page.getByText('Mã truy cập').waitFor();
     await page.getByRole('link', { name: 'Open download' }).click();
     await page.getByRole('button', { name: 'Validate' }).click();
-    await page.getByText('Ready').waitFor();
-    const downloadPromise = page.waitForEvent('download');
+    await page.getByText('Sẵn sàng').waitFor();
     await page.getByRole('button', { name: /Download & Decrypt/ }).click();
-    const download = await downloadPromise;
-    const path = await download.path();
-    expect(path).toBeTruthy();
-    expect(download.suggestedFilename()).toContain('demo.txt');
+    await expect(page.locator('.protected-reader-stage')).toContainText('Raw key demo');
   });
 });
 

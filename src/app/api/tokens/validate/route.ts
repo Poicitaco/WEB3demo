@@ -7,6 +7,8 @@ import { consumeRateLimit, rateLimitHeaders, requestIdentifier } from '@/lib/rat
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  const sessionAddress = await getSessionAddress();
+  if (!sessionAddress) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const rateLimit = consumeRateLimit('token:validate', requestIdentifier(req), 120, 60);
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: 'Too many token validation attempts' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
@@ -38,12 +40,13 @@ export async function POST(req: Request) {
     max_downloads?: number | null;
     download_count: number;
     destroyed_at?: string | null;
+    access_mode: 'download' | 'view';
   };
   const row = db
     .prepare(
       `SELECT t.token, t.file_id, t.expires_at, t.revoked, t.issued_to_address,
               f.cid, f.iv, f.salt, f.iv_wrap, f.wrapped_key, f.raw_key_base64, f.name, f.mime, f.size_bytes,
-              f.max_downloads, f.download_count, f.destroyed_at,
+              f.max_downloads, f.download_count, f.destroyed_at, f.access_mode,
               e.algorithm AS envelope_algorithm, e.ephemeral_public_key_jwk,
               e.salt AS envelope_salt, e.iv AS envelope_iv, e.wrapped_key AS envelope_wrapped_key
               , tf.file_id AS threshold_file_id
@@ -61,8 +64,7 @@ export async function POST(req: Request) {
   }
   if (row.destroyed_at) return NextResponse.json({ ok: false, error: 'File has self-destructed' }, { status: 410 });
   if (row.issued_to_address) {
-    const sessionAddress = await getSessionAddress();
-    if (!sessionAddress || normalizeAddress(sessionAddress) !== normalizeAddress(row.issued_to_address)) {
+    if (normalizeAddress(sessionAddress) !== normalizeAddress(row.issued_to_address)) {
       return NextResponse.json({ ok: false, error: 'Token is restricted to another wallet' }, { status: 403 });
     }
   }
@@ -92,5 +94,6 @@ export async function POST(req: Request) {
     thresholdProtected: Boolean(row.threshold_file_id),
     maxDownloads: row.max_downloads ?? undefined,
     remainingDownloads: row.max_downloads == null ? undefined : Math.max(0, row.max_downloads - row.download_count),
+    accessMode: row.access_mode,
   }, { headers: rateLimitHeaders(rateLimit) });
 }

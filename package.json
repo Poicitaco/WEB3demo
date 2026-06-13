@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
-    "build": "next build --turbopack",
-    "build:webpack": "next build",
+    "build": "next build",
+    "build:turbopack": "next build --turbopack",
     "start": "next start",
     "clean": "node -e \"try{require('fs').rmSync('.next',{recursive:true,force:true});}catch{}; try{require('fs').rmSync('.next-internal',{recursive:true,force:true});}catch{}\"",
     "lint": "eslint",
@@ -15,6 +15,7 @@
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "better-sqlite3": "^12.4.1",
+    "clsx": "^2.1.1",
     "ethers": "^6.15.0",
     "gsap": "^3.15.0",
     "jose": "^6.1.0",
@@ -22,6 +23,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "secrets.js-grempe": "^2.0.0",
+    "tailwind-merge": "^3.6.0",
     "uuid": "^13.0.1"
   },
   "devDependencies": {

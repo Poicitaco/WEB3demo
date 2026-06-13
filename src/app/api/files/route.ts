@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     thresholdShares,
     parentFileId,
     maxDownloads,
+    accessMode,
   } = body as {
     title?: string;
     description?: string;
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     thresholdShares?: unknown;
     parentFileId?: string;
     maxDownloads?: number | null;
+    accessMode?: 'download' | 'view';
   };
   // Basic input validation
   if (!cid || !iv) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -94,6 +96,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Threshold protection cannot be combined with another key mode' }, { status: 400 });
   }
   const normalizedMaxDownloads = maxDownloads == null ? null : Math.floor(maxDownloads);
+  const normalizedAccessMode = accessMode === 'view' ? 'view' : 'download';
   if (normalizedMaxDownloads !== null && (!Number.isFinite(normalizedMaxDownloads) || normalizedMaxDownloads < 1 || normalizedMaxDownloads > 10000)) {
     return NextResponse.json({ error: 'Max downloads must be between 1 and 10000' }, { status: 400 });
   }
@@ -166,12 +169,12 @@ export async function POST(req: Request) {
       ).get(logicalFileId) as { next_version: number }).next_version;
     }
     db.prepare(
-      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64, vault_id, logical_file_id, version_number, max_downloads)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO files (id, owner_address, title, description, cid, name, mime, size_bytes, iv, salt, iv_wrap, wrapped_key, raw_key_base64, vault_id, logical_file_id, version_number, max_downloads, access_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       fileId, address, titleTrim || null, description ?? null, cid, fileName ?? null,
       mime ?? null, sizeBytes ?? null, ivBuf, saltBuf, ivWrapBuf, wrappedKeyBuf, rawKeyBase64 ?? null,
-      effectiveVaultId, logicalFileId, versionNumber, normalizedMaxDownloads
+      effectiveVaultId, logicalFileId, versionNumber, normalizedMaxDownloads, normalizedAccessMode
     );
     db.prepare(
       `INSERT INTO tokens (token, file_id, issued_to_address, expires_at, revoked)
@@ -218,7 +221,7 @@ export async function POST(req: Request) {
       action: parentFileId ? 'file.version_created' : 'file.created',
       resourceType: 'file',
       resourceId: fileId,
-      metadata: { logicalFileId, versionNumber, vaultId: effectiveVaultId, maxDownloads: normalizedMaxDownloads },
+      metadata: { logicalFileId, versionNumber, vaultId: effectiveVaultId, maxDownloads: normalizedMaxDownloads, accessMode: normalizedAccessMode },
     });
   });
   saveFile();
