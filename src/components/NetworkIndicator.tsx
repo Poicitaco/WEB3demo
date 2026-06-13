@@ -29,11 +29,11 @@ export default function NetworkIndicator() {
   async function refresh() {
     try {
       const eth = getEthereum();
-      if (!eth) { setLabel('No wallet'); return; }
+      if (!eth) { setLabel('Chưa có ví'); return; }
       const chainIdHex = await eth.request?.({ method: 'eth_chainId' });
       const id = parseInt(chainIdHex as string, 16);
       setLabel(nameFromChainId(id));
-    } catch { setLabel('Unknown network'); }
+    } catch { setLabel('Mạng không xác định'); }
   }
 
   useEffect(() => {

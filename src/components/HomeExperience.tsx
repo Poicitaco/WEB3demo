@@ -1,268 +1,242 @@
 "use client";
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const revealWords = 'Security should feel invisible until the exact moment you need proof that it is working.'.split(' ');
-const cipherBlocks = Array.from({ length: 12 });
+const modules = [
+  {
+    index: '01',
+    title: 'Gửi riêng tư',
+    copy: 'Gửi hợp đồng, báo cáo hoặc tài liệu quan trọng bằng một liên kết chỉ đúng người mới mở được.',
+    href: '/upload',
+    action: 'Gửi một tệp',
+    state: 'Chỉ người được mời',
+  },
+  {
+    index: '02',
+    title: 'Làm việc nhóm',
+    copy: 'Tạo không gian chung, mời thành viên và quyết định ai được xem hoặc cập nhật tài liệu.',
+    href: '/dashboard',
+    action: 'Tạo không gian nhóm',
+    state: 'Phân quyền rõ ràng',
+  },
+  {
+    index: '03',
+    title: 'Kiểm soát',
+    copy: 'Đặt ngày hết hạn, giới hạn lượt tải, thu hồi liên kết và xem lại lịch sử chia sẻ.',
+    href: '/dashboard',
+    action: 'Xem quyền truy cập',
+    state: 'Sau khi đã gửi',
+  },
+];
+
+const events = [
+  ['Liên kết có thời hạn', 'Tự đóng sau thời gian bạn chọn', 'chia sẻ', 'có sẵn'],
+  ['Thu hồi sau khi gửi', 'Dừng quyền truy cập ngay lập tức', 'kiểm soát', 'có sẵn'],
+  ['Không gian làm việc chung', 'Phân vai trò cho từng thành viên', 'cộng tác', 'có sẵn'],
+  ['Nhiều người cùng duyệt', 'Tài liệu nhạy cảm cần đủ người đồng ý', 'an toàn', 'có sẵn'],
+];
 
 export default function HomeExperience() {
-  const root = useRef<HTMLDivElement>(null);
-  const heroOrb = useRef<HTMLDivElement>(null);
-  const cursor = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   useGSAP(() => {
+    if (!hydrated) return;
     const mm = gsap.matchMedia();
-    mm.add(
-      { motion: '(prefers-reduced-motion: no-preference)', desktop: '(min-width: 900px)' },
-      (context) => {
-        if (!context.conditions?.motion) return;
-
-        gsap.timeline({ defaults: { ease: 'power4.out' } })
-          .from('.spatial-nav-proxy', { y: -24, autoAlpha: 0, duration: .8 })
-          .from('.hero-reveal', { yPercent: 115, autoAlpha: 0, duration: 1.15, stagger: .1 }, '-=.45')
-          .from('.hero-support', { y: 22, autoAlpha: 0, duration: .75, stagger: .1 }, '-=.55')
-          .from('.hero-orb', { scale: .6, autoAlpha: 0, duration: 1.4 }, '-=1.05');
-
-        gsap.to('.artifact-image', { y: -12, rotation: 1.5, duration: 4.5, ease: 'sine.inOut', repeat: -1, yoyo: true });
-        gsap.to('.artifact-light', { scale: 1.14, autoAlpha: .72, duration: 3.4, ease: 'sine.inOut', repeat: -1, yoyo: true });
-        gsap.to('.artifact-scan', { yPercent: 850, duration: 5.5, ease: 'none', repeat: -1, repeatDelay: 2.5 });
-        gsap.to('.hero-orb', {
-          '--reveal-size': '62%',
-          scrollTrigger: { trigger: '.spatial-hero', start: 'top top', end: 'bottom top', scrub: 1 },
-        });
-
-        gsap.timeline({
-          scrollTrigger: { trigger: '.encrypt-scene', start: 'top 72%', end: 'bottom 38%', scrub: 1.1 },
-        })
-          .from('.encrypt-copy > *', { y: 55, autoAlpha: 0, stagger: .12, duration: .8 }, 0)
-          .from('.scene-file', { rotationY: -18, scale: .82, autoAlpha: 0, duration: 1 }, 0)
-          .to('.scene-file', { rotationY: 12, scale: .88, duration: 1 }, .55)
-          .fromTo('.cipher-block', {
-            x: 0, y: 0, scale: .2, autoAlpha: 0,
-          }, {
-            x: (index) => ((index % 4) - 1.5) * 112,
-            y: (index) => (Math.floor(index / 4) - 1) * 112,
-            scale: 1,
-            autoAlpha: 1,
-            stagger: .025,
-            duration: 1,
-          }, .65)
-          .to('.cipher-block', { x: 0, y: 0, scale: .3, autoAlpha: 0, stagger: .018, duration: .8 }, 1.65)
-          .to('.scene-file', { rotationY: 0, scale: 1, duration: .8 }, 1.75)
-          .fromTo('.seal-scan', { yPercent: -130, autoAlpha: 0 }, { yPercent: 550, autoAlpha: 1, duration: .7 }, 1.95);
-
-        gsap.timeline({
-          scrollTrigger: { trigger: '.wallet-scene', start: 'top 72%', end: 'bottom 35%', scrub: 1 },
-        })
-          .from('.wallet-copy > *', { y: 55, autoAlpha: 0, stagger: .12, duration: .8 })
-          .from('.wallet-device', { x: 100, rotationY: -24, autoAlpha: 0, duration: 1 }, 0)
-          .from('.access-packet', { x: -260, scale: .35, autoAlpha: 0, duration: 1.2 }, .5)
-          .to('.access-line', { scaleX: 1, duration: 1.2 }, .55)
-          .to('.access-packet', { x: 160, rotation: 90, duration: 1.2 }, 1.1)
-          .to('.wallet-status-before', { y: -18, autoAlpha: 0, duration: .35 }, 1.8)
-          .to('.wallet-status-after', { y: 0, autoAlpha: 1, duration: .4 }, 1.9)
-          .to('.wallet-glow', { scale: 1.25, autoAlpha: .65, duration: .55 }, 1.8);
-
-        gsap.to('.reveal-word', {
-          color: '#f7f8fb',
-          stagger: .08,
-          scrollTrigger: { trigger: '.word-reveal', start: 'top 78%', end: 'bottom 48%', scrub: 1 },
-        });
-
-        if (context.conditions.desktop) {
-          gsap.timeline({
-            scrollTrigger: {
-              trigger: '.threshold-stage',
-              start: 'top top',
-              end: '+=1800',
-              scrub: 1,
-              pin: '.threshold-panel',
-            },
-          })
-            .from('.threshold-node', { scale: .25, autoAlpha: 0, stagger: .12, duration: .8 })
-            .to('.threshold-line', { strokeDashoffset: 0, autoAlpha: 1, stagger: .13, duration: .7 }, .45)
-            .to('.threshold-node:nth-of-type(-n+3)', { scale: 1.14, duration: .35, stagger: .12 }, 1.1)
-            .to('.threshold-count-step', { y: -72, duration: .6 }, 1.1)
-            .to('.threshold-core', { scale: 1.16, rotation: 8, duration: .65 }, 1.55)
-            .to('.threshold-lock-closed', { autoAlpha: 0, y: -12, duration: .25 }, 1.55)
-            .to('.threshold-lock-open', { autoAlpha: 1, y: 0, duration: .35 }, 1.67)
-            .to('.threshold-flare', { scale: 1.7, autoAlpha: .7, duration: .7 }, 1.5);
-        } else {
-          gsap.from('.threshold-node, .threshold-core', {
-            y: 30, autoAlpha: 0, stagger: .08, duration: .7,
-            scrollTrigger: { trigger: '.threshold-panel', start: 'top 78%', once: true },
-          });
-        }
-
-        gsap.from('.final-reveal', {
-          y: 70, autoAlpha: 0, stagger: .1, duration: 1,
-          scrollTrigger: { trigger: '.spatial-final', start: 'top 76%', once: true },
-        });
-      }
-    );
-
-    const cursorEnabled = window.matchMedia('(pointer: fine)').matches
-      && window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
-    if (!heroOrb.current || !cursor.current || !cursorEnabled) return () => mm.revert();
-    const xTo = gsap.quickTo(heroOrb.current, 'x', { duration: 1, ease: 'power3.out' });
-    const yTo = gsap.quickTo(heroOrb.current, 'y', { duration: 1, ease: 'power3.out' });
-    const cursorX = gsap.quickTo(cursor.current, 'x', { duration: .42, ease: 'power3.out' });
-    const cursorY = gsap.quickTo(cursor.current, 'y', { duration: .42, ease: 'power3.out' });
-    const revealX = gsap.quickSetter(heroOrb.current, '--reveal-x');
-    const revealY = gsap.quickSetter(heroOrb.current, '--reveal-y');
-    const cursorCopy = cursor.current.querySelector<HTMLElement>('.cursor-copy');
-    const onPointer = (event: PointerEvent) => {
-      xTo((event.clientX / innerWidth - .5) * 32);
-      yTo((event.clientY / innerHeight - .5) * 24);
-      cursorX(event.clientX);
-      cursorY(event.clientY);
-      const orbBounds = heroOrb.current!.getBoundingClientRect();
-      revealX(`${((event.clientX - orbBounds.left) / orbBounds.width) * 100}%`);
-      revealY(`${((event.clientY - orbBounds.top) / orbBounds.height) * 100}%`);
-      const overHero = Boolean((event.target as HTMLElement).closest('.spatial-hero'));
-      gsap.to(heroOrb.current, { '--reveal-size': overHero ? '18%' : '0%', duration: .55, ease: 'power3.out', overwrite: 'auto' });
-      const target = (event.target as HTMLElement).closest<HTMLElement>('[data-cursor]');
-      const material = (event.target as HTMLElement).closest<HTMLElement>('[data-material]');
-      if (material) {
-        const bounds = material.getBoundingClientRect();
-        material.style.setProperty('--light-x', `${((event.clientX - bounds.left) / bounds.width) * 100}%`);
-        material.style.setProperty('--light-y', `${((event.clientY - bounds.top) / bounds.height) * 100}%`);
-      }
-      cursorCopy!.textContent = target?.dataset.cursor ?? '';
-      gsap.to(cursor.current, {
-        scale: target ? 1.8 : 1,
-        autoAlpha: 1,
-        duration: .3,
-        overwrite: true,
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.from('.builder-reveal', {
+        y: 18,
+        autoAlpha: 0,
+        duration: .7,
+        stagger: .06,
+        ease: 'power3.out',
       });
-    };
-    const onPointerLeave = () => gsap.to(cursor.current, { autoAlpha: 0, duration: .25 });
-    window.addEventListener('pointermove', onPointer);
-    document.documentElement.addEventListener('pointerleave', onPointerLeave);
-    return () => {
-      window.removeEventListener('pointermove', onPointer);
-      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
-      mm.revert();
-    };
-  }, { scope: root });
+      gsap.from('.flow-node', {
+        scale: .6,
+        autoAlpha: 0,
+        duration: .6,
+        stagger: .08,
+        delay: .35,
+        ease: 'back.out(1.4)',
+      });
+      gsap.to('.flow-pulse', {
+        xPercent: 650,
+        duration: 3,
+        repeat: -1,
+        repeatDelay: 1.4,
+        ease: 'power2.inOut',
+      });
+      gsap.to('.event-mark', {
+        scale: 1.8,
+        autoAlpha: .35,
+        duration: 1.1,
+        stagger: .18,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+      gsap.to('.approved', {
+        boxShadow: '0 0 24px rgba(120,228,110,.26)',
+        duration: 1.4,
+        stagger: .16,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+      gsap.to('.orb-core', {
+        y: -12,
+        rotation: 4,
+        duration: 2.8,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+      gsap.to('.orb-ring-one', {
+        rotation: 360,
+        duration: 18,
+        repeat: -1,
+        ease: 'none',
+      });
+      gsap.to('.orb-ring-two', {
+        rotation: -360,
+        duration: 24,
+        repeat: -1,
+        ease: 'none',
+      });
+      ScrollTrigger.batch('.module-card, .activity-row', {
+        start: 'top 92%',
+        once: true,
+        onEnter: (items) => gsap.from(items, {
+          y: 20,
+          autoAlpha: 0,
+          duration: .65,
+          stagger: .07,
+          ease: 'power3.out',
+        }),
+      });
+    });
+    return () => mm.revert();
+  }, { scope: root, dependencies: [hydrated], revertOnUpdate: true });
+
+  useEffect(() => setHydrated(true), []);
 
   return (
-    <main ref={root} className="home-experience overflow-x-hidden w-full max-w-full">
-      <div ref={cursor} className="motion-cursor" aria-hidden="true"><span className="cursor-copy" /></div>
-      <section className="spatial-hero">
-        <div ref={heroOrb} className="hero-orb" data-cursor="sealed" aria-hidden="true">
-          <div className="artifact-light" />
-          <div className="artifact-frame">
-            <i className="artifact-scan" />
-            <Image className="artifact-image" src="/visuals/encrypted-artifact.png" alt="" fill priority sizes="(max-width: 900px) 105vw, 68vw" />
-            <div className="artifact-reveal">
-              <Image className="artifact-image artifact-image-open" src="/visuals/decrypted-artifact.png" alt="" fill priority sizes="(max-width: 900px) 105vw, 68vw" />
-            </div>
-            <i className="artifact-lens-ring" />
-          </div>
-        </div>
-        <div className="spatial-hero-copy">
-          <p className="hero-support">Private file infrastructure for teams that cannot rely on trust alone.</p>
-          <h1>
-            <span className="hero-line-mask"><span className="hero-reveal">Share files.</span></span>
-            <span className="hero-line-mask"><span className="hero-reveal hero-soft">Keep the keys.</span></span>
-          </h1>
-          <div className="hero-support spatial-actions">
-            <Link href="/upload" className="btn-primary" data-cursor="enter">Start encrypting</Link>
-            <Link href="/dashboard" className="btn-secondary" data-cursor="explore">Explore the vault</Link>
-          </div>
-        </div>
-        <p className="hero-reveal-hint hero-support">Move to reveal what the server never sees.</p>
-      </section>
-
-      <section className="product-scene encrypt-scene">
-        <div className="scene-copy encrypt-copy">
-          <span>01 / Local encryption</span>
-          <h2>Sealed before it leaves.</h2>
-          <p>AES-256-GCM transforms every byte before upload. Storage receives an unreadable object, never your original file.</p>
-        </div>
-        <div className="scene-visual encrypt-visual" data-cursor="encrypt">
-          <div className="cipher-field" aria-hidden="true">
-            {cipherBlocks.map((_, index) => <i className="cipher-block" key={index} />)}
-          </div>
-          <div className="scene-file" data-material>
-              <i className="seal-scan" />
-              <div className="file-top"><span>quarterly-report.pdf</span><i /></div>
-              <div className="file-seal"><b /><strong>SEALED</strong><em>Local encryption complete</em></div>
-              <div className="file-bottom"><small>ciphertext only / 18.4 mb</small><span>256</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="product-scene wallet-scene">
-        <div className="scene-copy wallet-copy">
-          <span>02 / Wallet-bound access</span>
-          <h2>A shared link is not permission.</h2>
-          <p>The file key is wrapped for one recipient wallet. Forward the URL anywhere; only the intended wallet can open it.</p>
-        </div>
-        <div className="scene-visual wallet-visual" data-cursor="authorize">
-          <div className="wallet-glow" />
-          <div className="access-origin"><span>FILE KEY</span><b /></div>
-          <div className="access-line" />
-          <div className="access-packet"><i /></div>
-          <div className="wallet-device" data-material>
-            <div className="wallet-camera" />
-            <div className="wallet-screen">
-              <div className="wallet-screen-top"><span>SECURESHARE</span><i /></div>
-              <div className="wallet-identity"><b>7A</b><span>RECIPIENT</span><strong>0x7A...91C4</strong></div>
-              <div className="wallet-status"><b className="wallet-status-before">VERIFYING</b><b className="wallet-status-after">AUTHORIZED</b></div>
+    <main ref={root} className="builder-home">
+      <section className="builder-intro builder-reveal">
+        <div className="builder-path">/ chia sẻ tài liệu quan trọng</div>
+        <div className="builder-intro-grid">
+          <div>
+            <h1>Gửi tệp.<br /><span>Giữ quyền kiểm soát.</span></h1>
+            <p>Mã hoá trước khi tệp rời thiết bị. Chỉ người bạn cho phép mới có thể mở, và bạn vẫn có thể thu hồi quyền sau khi gửi.</p>
+            <div className="hero-actions">
+              <Link href="/upload" className="btn-primary">Gửi tài liệu</Link>
+              <Link href="/dashboard" className="btn-secondary">Mở không gian của bạn</Link>
             </div>
           </div>
+          <div className="vault-orb" aria-hidden="true">
+            <span className="orb-ring orb-ring-one" />
+            <span className="orb-ring orb-ring-two" />
+            <span className="orb-core"><i /><strong>V</strong></span>
+            <span className="orb-chip orb-chip-one">Riêng tư</span>
+            <span className="orb-chip orb-chip-two">Bạn kiểm soát</span>
+          </div>
         </div>
       </section>
 
-      <section className="word-reveal">
-        <p>{revealWords.map((word, index) => <span className="reveal-word" key={`${word}-${index}`}>{word} </span>)}</p>
-      </section>
-
-      <section className="threshold-stage">
-        <div className="threshold-panel">
-          <div className="threshold-copy">
-            <span>Threshold recovery / live</span>
-            <h2>No one holds the whole key.</h2>
-            <p>Five fragments stay independent. Any three can reconstruct access without revealing the secret to a single holder.</p>
-            <div className="threshold-counter"><div className="threshold-count-step"><strong>0/5</strong><strong>3/5</strong></div><span>approvals</span></div>
+      <section className="builder-grid builder-reveal">
+        <article className="transfer-module">
+          <div className="module-bar">
+            <span>Một tệp được gửi như thế nào</span>
+            <span className="status-dot">Sẵn sàng</span>
           </div>
-          <div className="threshold-map" data-cursor="approve">
-            <svg viewBox="0 0 620 620" aria-hidden="true">
-              <line className="threshold-line" x1="310" y1="310" x2="310" y2="60" />
-              <line className="threshold-line" x1="310" y1="310" x2="548" y2="232" />
-              <line className="threshold-line" x1="310" y1="310" x2="457" y2="512" />
-              <line className="threshold-line threshold-line-muted" x1="310" y1="310" x2="163" y2="512" />
-              <line className="threshold-line threshold-line-muted" x1="310" y1="310" x2="72" y2="232" />
-            </svg>
-            <div className="threshold-flare" />
-            <div className="threshold-node threshold-node-1" data-material><span>01</span><b>AL</b><i /></div>
-            <div className="threshold-node threshold-node-2" data-material><span>02</span><b>MK</b><i /></div>
-            <div className="threshold-node threshold-node-3" data-material><span>03</span><b>TD</b><i /></div>
-            <div className="threshold-node threshold-node-4" data-material><span>04</span><b>JL</b><i /></div>
-            <div className="threshold-node threshold-node-5" data-material><span>05</span><b>PS</b><i /></div>
-            <div className="threshold-core" data-material>
-              <span className="threshold-lock-closed">K/N</span>
-              <span className="threshold-lock-open">OPEN</span>
+          <div className="transfer-route">
+            <div className="flow-node">
+              <i>01</i>
+              <strong>Chọn tệp</strong>
+              <span>tệp vẫn ở trên thiết bị</span>
+            </div>
+            <div className="flow-line"><i className="flow-pulse" /></div>
+            <div className="flow-node">
+              <i>02</i>
+              <strong>Khoá riêng tư</strong>
+              <span>nội dung được bảo vệ</span>
+            </div>
+            <div className="flow-line"><i className="flow-pulse" /></div>
+            <div className="flow-node">
+              <i>03</i>
+              <strong>Đúng người</strong>
+              <span>chỉ người được mời có thể mở</span>
             </div>
           </div>
+          <div className="transfer-footer">
+            <span>Nội dung tệp</span><strong>Luôn riêng tư</strong>
+            <span>Bạn có thể thu hồi</span><strong>Bất cứ lúc nào</strong>
+          </div>
+        </article>
+
+        <aside className="account-module control-module">
+          <div className="module-bar"><span>Kiểm soát sau khi gửi</span><span>Thuộc về bạn</span></div>
+          <div className="control-statement">
+            <span>Quyền truy cập không kết thúc khi bạn nhấn gửi.</span>
+            <strong>Bạn vẫn<br />giữ quyền.</strong>
+          </div>
+          <div className="control-list">
+            <div><i>01</i><span>Thu hồi quyền truy cập</span><small>Bất cứ lúc nào</small></div>
+            <div><i>02</i><span>Đặt thời hạn tự động</span><small>Theo từng liên kết</small></div>
+            <div><i>03</i><span>Theo dõi lịch sử mở tệp</span><small>Minh bạch</small></div>
+          </div>
+          <Link href="/dashboard" className="module-action">Mở trung tâm kiểm soát <span>↗</span></Link>
+        </aside>
+      </section>
+
+      <section className="module-list builder-reveal">
+        <div className="section-bar">
+          <span>/ không chỉ gửi và tải xuống</span>
+          <p>Vaultline giúp bạn tiếp tục kiểm soát tài liệu sau khi đã chia sẻ.</p>
+        </div>
+        <div className="module-cards">
+          {modules.map((module) => (
+            <Link href={module.href} className="module-card" key={module.title}>
+              <div className="module-card-top"><span>{module.index}</span><small>{module.state}</small></div>
+              <div>
+                <h2>{module.title}</h2>
+                <p>{module.copy}</p>
+              </div>
+              <strong>{module.action}<span>↗</span></strong>
+            </Link>
+          ))}
         </div>
       </section>
 
-      <section className="spatial-final">
-        <div className="final-reveal final-orb"><span className="seal-mark" /></div>
-        <h2 className="final-reveal">Make access feel deliberate.</h2>
-        <p className="final-reveal">Encrypt locally. Share selectively. Recover together.</p>
-        <Link href="/upload" className="btn-primary final-reveal" data-cursor="create">Create a sealed file</Link>
+      <section className="activity-module builder-reveal">
+        <div className="section-bar">
+          <span>/ những gì bạn có thể làm</span>
+          <p>Các khả năng đã có sẵn cho tài liệu cá nhân và không gian nhóm.</p>
+        </div>
+        <div className="activity-table">
+          {events.map(([event, target, value, status]) => (
+            <div className="activity-row" key={event}>
+              <span className="event-mark" />
+              <strong>{event}</strong>
+              <span>{target}</span>
+              <span>{value}</span>
+              <small>{status}</small>
+            </div>
+          ))}
+        </div>
       </section>
+
+      <footer className="builder-footer builder-reveal">
+        <span>VAULTLINE / BUILDER</span>
+        <span>Gửi riêng tư · làm việc nhóm · kiểm soát quyền truy cập</span>
+        <Link href="/upload">Gửi tệp đầu tiên ↗</Link>
+      </footer>
     </main>
   );
 }

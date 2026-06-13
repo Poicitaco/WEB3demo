@@ -5,6 +5,7 @@ import AccountMenu from '@/components/AccountMenu';
 import HeaderStatus from '@/components/HeaderStatus';
 import NetworkIndicator from '@/components/NetworkIndicator';
 import Providers from '@/components/Providers';
+import WalletSessionNotice from '@/components/WalletSessionNotice';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SecureShare | Zero-Knowledge File Control",
-  description: "Client-side encrypted file sharing controlled by wallets and threshold approvals",
+  title: "Vaultline | Chia sẻ tài liệu riêng tư",
+  description: "Gửi tài liệu quan trọng và giữ quyền kiểm soát sau khi chia sẻ.",
 };
 
 export default function RootLayout({
@@ -28,17 +29,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="vi">
+      <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <header className="site-header">
+          <header className="site-header brand-nav-proxy">
             <div className="site-nav flex items-center justify-between gap-4">
-              <Link href="/" className="brand-mark"><span className="brand-glyph"><i /></span><span>SecureShare</span></Link>
+              <Link href="/" className="brand-mark"><span className="brand-glyph"><i /></span><span>VAULTLINE</span></Link>
               <nav className="nav-rail hidden sm:flex">
-                <Link href="/" className="nav-link">Home</Link>
-                <Link href="/upload" className="nav-link">Upload</Link>
-                <Link href="/download" className="nav-link">Download</Link>
-                <Link href="/dashboard" className="nav-link">Dashboard</Link>
+                <Link href="/" className="nav-link">Khám phá</Link>
+                <Link href="/upload" className="nav-link">Gửi tệp</Link>
+                <Link href="/download" className="nav-link">Nhận tệp</Link>
+                <Link href="/dashboard" className="nav-link">Không gian của bạn</Link>
               </nav>
               <div className="flex items-center gap-3">
                 <NetworkIndicator />
@@ -47,12 +48,13 @@ export default function RootLayout({
               </div>
             </div>
           </header>
+          <WalletSessionNotice />
           <main>{children}</main>
           <nav className="mobile-dock sm:hidden" aria-label="Mobile navigation">
-            <Link href="/">Home</Link>
-            <Link href="/upload">Upload</Link>
-            <Link href="/download">Decrypt</Link>
-            <Link href="/dashboard">Control</Link>
+            <Link href="/">Khám phá</Link>
+            <Link href="/upload">Gửi tệp</Link>
+            <Link href="/download">Nhận tệp</Link>
+            <Link href="/dashboard">Của bạn</Link>
           </nav>
         </Providers>
       </body>

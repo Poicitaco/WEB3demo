@@ -58,7 +58,7 @@ export default function WalletButton() {
       {address ? (
         <>
           <span className="text-sm">{address.slice(0, 6)}…{address.slice(-4)}</span>
-          <button onClick={logout} disabled={loading} className="btn-secondary text-xs">Sign out</button>
+          <button onClick={logout} disabled={loading} className="btn-secondary text-xs">Đăng xuất</button>
         </>
       ) : (
         <button
@@ -66,7 +66,7 @@ export default function WalletButton() {
           disabled={loading}
           className="px-3 py-1.5 rounded bg-black text-white dark:bg-white dark:text-black text-sm"
         >
-          {loading ? 'Connecting…' : 'Connect Wallet'}
+          {loading ? 'Đang kết nối...' : 'Kết nối ví'}
         </button>
       )}
     </div>
