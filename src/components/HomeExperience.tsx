@@ -142,7 +142,7 @@ export default function HomeExperience() {
           <div className="vault-orb" aria-hidden="true">
             <span className="orb-ring orb-ring-one" />
             <span className="orb-ring orb-ring-two" />
-            <span className="orb-core"><i /><strong>V</strong></span>
+            <span className="orb-core dog-core" />
             <span className="orb-chip orb-chip-one">Riêng tư</span>
             <span className="orb-chip orb-chip-two">Bạn kiểm soát</span>
           </div>

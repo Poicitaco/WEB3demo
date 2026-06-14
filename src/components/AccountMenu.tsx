@@ -5,7 +5,10 @@ import type { Eip1193Provider } from 'ethers';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
-const EncryptionIdentityControl = dynamic(() => import('@/components/EncryptionIdentityControl'));
+
+const EncryptionIdentityControl = dynamic(() => import('@/components/EncryptionIdentityControl'), {
+  loading: () => <div className="account-menu-note">Đang tải định danh mã hoá...</div>,
+});
 
 type EthereumProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -21,6 +24,7 @@ export default function AccountMenu() {
   const { success, error: toastError, info } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -116,8 +120,12 @@ export default function AccountMenu() {
 
   const copy = async () => {
     if (!address) return;
-    await navigator.clipboard.writeText(address);
-    success('Đã sao chép địa chỉ');
+    try {
+      await navigator.clipboard.writeText(address);
+      success('Đã sao chép địa chỉ');
+    } catch {
+      info(address);
+    }
     setOpen(false);
   };
 
@@ -157,7 +165,7 @@ export default function AccountMenu() {
 
   if (!address) {
     return (
-      <button onClick={connect} disabled={loading} className="btn-primary">
+      <button type="button" onClick={connect} disabled={loading} className="btn-primary">
         {loading ? 'Đang kết nối...' : 'Kết nối ví'}
       </button>
     );
@@ -165,20 +173,41 @@ export default function AccountMenu() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 btn-secondary">
-        <span className="inline-flex w-5 h-5 bg-[var(--accent-1)]" />
+      <button
+        type="button"
+        aria-label="Mở menu tài khoản"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="account-menu-trigger btn-secondary"
+      >
+        <span className="account-avatar" aria-hidden="true" />
         <span className="text-sm">{short(address)}</span>
       </button>
       {open && (
-        <div className="account-popover absolute right-0 mt-2 w-72 glass allow-overflow p-2 text-sm">
-          <div className="px-2 py-1 muted">Tài khoản</div>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={copy}>Sao chép địa chỉ</button>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={explorer}>Xem trên explorer</button>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={switchAccount}>Chuyển tài khoản</button>
-          <a className="block px-2 py-1 hover:text-accent-3" href="/dashboard">Tệp của tôi</a>
-          {open && <EncryptionIdentityControl address={address} />}
+        <div className="account-popover absolute right-0 mt-2 w-80 glass allow-overflow p-2 text-sm" role="menu">
+          <div className="account-menu-head">
+            <span className="account-avatar large" aria-hidden="true" />
+            <div>
+              <strong>Tài khoản đang dùng</strong>
+              <code>{short(address)}</code>
+            </div>
+          </div>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={copy}>Sao chép địa chỉ</button>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={explorer}>Xem trên explorer</button>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={switchAccount}>Chuyển tài khoản</button>
+          <a role="menuitem" className="account-menu-item" href="/dashboard">Tệp của tôi</a>
+          <button
+            type="button"
+            role="menuitem"
+            className="account-menu-item"
+            onClick={() => setShowIdentity((value) => !value)}
+          >
+            {showIdentity ? 'Ẩn định danh mã hoá' : 'Kiểm tra định danh mã hoá'}
+          </button>
+          {showIdentity && <EncryptionIdentityControl address={address} />}
           <div className="border-t border-[rgba(255,255,255,0.12)] my-1" />
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={logout}>Đăng xuất</button>
+          <button type="button" role="menuitem" className="account-menu-item danger" onClick={logout}>Đăng xuất</button>
         </div>
       )}
     </div>

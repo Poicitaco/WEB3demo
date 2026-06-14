@@ -34,7 +34,7 @@ export default function RootLayout({
         <Providers>
           <header className="site-header brand-nav-proxy">
             <div className="site-nav flex items-center justify-between gap-4">
-              <Link href="/" className="brand-mark"><span className="brand-glyph"><i /></span><span>VAULTLINE</span></Link>
+              <Link href="/" className="brand-mark"><span className="brand-glyph" aria-hidden="true" /><span>VAULTLINE</span></Link>
               <nav className="nav-rail hidden sm:flex">
                 <Link href="/" className="nav-link">Khám phá</Link>
                 <Link href="/upload" className="nav-link">Gửi tệp</Link>
