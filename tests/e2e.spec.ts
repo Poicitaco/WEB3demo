@@ -49,6 +49,40 @@ test('download actions require an authenticated wallet session', async ({ page }
   await expect(page.getByRole('button', { name: /Download & Decrypt/ })).toBeDisabled();
 });
 
+test('visible buttons and links expose readable labels on public pages', async ({ page }) => {
+  for (const path of ['/', '/upload', '/download', '/dashboard']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const unlabeled = await page.locator('button:visible, a:visible').evaluateAll((nodes) =>
+      nodes
+        .map((node) => {
+          const element = node as HTMLElement;
+          const label = [
+            element.innerText,
+            element.getAttribute('aria-label'),
+            element.getAttribute('title'),
+          ].filter(Boolean).join(' ').trim();
+          return label ? null : element.outerHTML.slice(0, 120);
+        })
+        .filter(Boolean)
+    );
+    expect(unlabeled, `${path} has unlabeled interactive controls`).toEqual([]);
+  }
+});
+
+test('authenticated account menu opens without relying on MetaMask UI', async ({ page, context, baseURL }) => {
+  if (!baseURL) test.skip();
+  const session = await loginSession(baseURL);
+  await context.addCookies([{ name: 'session', value: session, domain: 'localhost', path: '/' }]);
+
+  await page.goto('/dashboard');
+  await page.getByLabel('Mở menu tài khoản').click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Sao chép địa chỉ' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Kiểm tra định danh mã hoá' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Kiểm tra định danh mã hoá' }).click();
+  await expect(page.getByText(/Định danh mã hoá|Đang tải định danh/)).toBeVisible();
+});
+
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
   const start = await req.post('/api/auth/start');
