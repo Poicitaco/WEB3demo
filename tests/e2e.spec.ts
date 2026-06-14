@@ -687,6 +687,22 @@ test.describe('Threshold approval sessions', () => {
     })).ok()).toBeTruthy();
 
     const rawFileKey = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
+    const fileIv = Buffer.alloc(12, 9);
+    const filePlaintext = Buffer.from('Threshold demo paper');
+    const fileKey = await webcrypto.subtle.importKey('raw', rawFileKey, 'AES-GCM', false, ['encrypt']);
+    const fileCiphertext = Buffer.from(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv: fileIv }, fileKey, filePlaintext));
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'threshold.bin',
+          mimeType: 'application/octet-stream',
+          buffer: fileCiphertext,
+        },
+      },
+    });
+    expect(upload.ok()).toBeTruthy();
+    const { cid } = await upload.json();
     const shares = splitSecret(rawFileKey, 3, 2);
     const encryptedShares = await encryptThresholdShares(shares, [
       { address: owner.wallet.address, publicKey: ownerIdentity.publicKey },
@@ -697,11 +713,11 @@ test.describe('Threshold approval sessions', () => {
       headers: { 'x-csrf': await csrfFor(owner.req) },
       data: {
         title: 'Threshold protected file',
-        cid: 'threshold-session-cid',
+        cid,
         fileName: 'threshold.txt',
         mime: 'text/plain',
-        sizeBytes: 20,
-        iv: Buffer.alloc(12, 9).toString('base64'),
+        sizeBytes: filePlaintext.length,
+        iv: fileIv.toString('base64'),
         vaultId,
         thresholdShares: encryptedShares.map((share) => ({
           memberAddress: share.recipientAddress,
@@ -742,6 +758,7 @@ test.describe('Threshold approval sessions', () => {
     expect(createRequest.ok()).toBeTruthy();
     const { requestId } = await createRequest.json();
 
+    const approvalResults: Array<{ approvalCount: number; threshold: number; token?: string }> = [];
     for (const approver of [
       { session: owner, identity: ownerIdentity },
       { session: editor, identity: editorIdentity },
@@ -762,12 +779,19 @@ test.describe('Threshold approval sessions', () => {
         data: { envelope },
       });
       expect(approval.ok()).toBeTruthy();
+      approvalResults.push(await approval.json());
     }
+    expect(approvalResults[0].approvalCount).toBe(1);
+    expect(approvalResults[0].token).toBeUndefined();
+    expect(approvalResults[1].approvalCount).toBe(2);
+    expect(approvalResults[1].token).toBeTruthy();
+    const approvalToken = approvalResults[1].token!;
 
     const requesterDetail = await requester.req.get(`/api/approvals/${requestId}`);
     const requesterBody = await requesterDetail.json();
     expect(requesterBody.request.status).toBe('approved');
     expect(requesterBody.request.approvalCount).toBe(2);
+    expect(requesterBody.request.approvedToken).toBe(approvalToken);
     const approvedShares = await Promise.all(
       requesterBody.request.contributions.map(async (contribution: { envelope: RecipientSecretEnvelope }) => {
         const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, requesterIdentity.privateKey);
@@ -775,6 +799,17 @@ test.describe('Threshold approval sessions', () => {
       })
     );
     expect(Buffer.from(combineSecret(approvedShares))).toEqual(Buffer.from(rawFileKey));
+    const approvalTokenValidation = await requester.req.post('/api/tokens/validate', { data: { token: approvalToken } });
+    const approvalTokenBody = await approvalTokenValidation.json();
+    expect(approvalTokenBody.ok).toBeTruthy();
+    expect(approvalTokenBody.approvalGranted).toBeTruthy();
+    expect(approvalTokenBody.approvalRequestId).toBe(requestId);
+    expect(approvalTokenBody.thresholdProtected).toBeFalsy();
+    const ownerApprovalTokenValidation = await owner.req.post('/api/tokens/validate', { data: { token: approvalToken } });
+    expect(ownerApprovalTokenValidation.status()).toBe(403);
+    const tokenCiphertext = await requester.req.get(`/api/storage/get?token=${encodeURIComponent(approvalToken)}`);
+    expect(tokenCiphertext.ok()).toBeTruthy();
+    expect(Buffer.from(await tokenCiphertext.body())).toEqual(fileCiphertext);
 
     const secondRequest = await requester.req.post('/api/approvals', {
       headers: { 'x-csrf': await csrfFor(requester.req) },

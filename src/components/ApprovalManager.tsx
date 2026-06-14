@@ -21,6 +21,7 @@ type ApprovalRow = {
   vault_name: string;
   approval_count: number;
   can_approve: number;
+  approved_token?: string | null;
 };
 
 async function csrfToken() {
@@ -91,11 +92,20 @@ export default function ApprovalManager() {
       });
       const approveData = await approveResponse.json();
       if (!approveResponse.ok || !approveData.ok) throw new Error(approveData.error || 'Approval failed');
-      toast.success(`Đã gửi phê duyệt (${approveData.approvalCount}/${approveData.threshold})`);
+      toast.success(approveData.token
+        ? `Đã đủ phê duyệt và cấp token cho người yêu cầu (${approveData.approvalCount}/${approveData.threshold})`
+        : `Đã gửi phê duyệt (${approveData.approvalCount}/${approveData.threshold})`
+      );
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  async function copyApprovalLink(token: string) {
+    const link = `${window.location.origin}/download?token=${encodeURIComponent(token)}`;
+    await navigator.clipboard.writeText(link);
+    toast.success('Đã sao chép liên kết mở bằng token');
   }
 
   async function recoverInViewer(requestId: string) {
@@ -183,6 +193,12 @@ export default function ApprovalManager() {
                         <button className="btn-secondary text-xs" disabled={row.approval_count < row.threshold} onClick={() => recoverInViewer(row.id)}>
                           Khôi phục vào Viewer
                         </button>
+                      ) : null}
+                      {isRequester && row.approved_token ? (
+                        <>
+                          <a className="btn-secondary text-xs" href={`/download?token=${encodeURIComponent(row.approved_token)}`}>Mở bằng token</a>
+                          <button className="btn-secondary text-xs" onClick={() => copyApprovalLink(row.approved_token!)}>Sao chép link</button>
+                        </>
                       ) : null}
                     </div>
                   </td>

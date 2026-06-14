@@ -192,10 +192,19 @@ function migrate(d: Database.Database) {
   if (!names.has('access_mode')) {
     d.exec(`ALTER TABLE files ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'download' CHECK(access_mode IN ('download', 'view'))`);
   }
+  const tokenInfo = d.prepare(`PRAGMA table_info(tokens)`).all() as Array<{ name: string }>;
+  const tokenNames = new Set(tokenInfo.map((c) => c.name));
+  if (!tokenNames.has('approval_request_id')) {
+    d.exec(`ALTER TABLE tokens ADD COLUMN approval_request_id TEXT`);
+  }
+  if (!tokenNames.has('purpose')) {
+    d.exec(`ALTER TABLE tokens ADD COLUMN purpose TEXT NOT NULL DEFAULT 'share' CHECK(purpose IN ('share', 'approval'))`);
+  }
   d.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_vault_id ON files(vault_id);
     CREATE INDEX IF NOT EXISTS idx_vault_members_address ON vault_members(address);
     CREATE INDEX IF NOT EXISTS idx_tokens_file_id ON tokens(file_id);
+    CREATE INDEX IF NOT EXISTS idx_tokens_approval_request ON tokens(approval_request_id);
     CREATE INDEX IF NOT EXISTS idx_files_logical_file_id ON files(logical_file_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_files_logical_version ON files(logical_file_id, version_number);
     CREATE INDEX IF NOT EXISTS idx_threshold_file_shares_member ON threshold_file_shares(member_address);

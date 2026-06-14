@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLocalEncryptionIdentity } from '@/lib/clientEncryptionIdentity';
-import type { RecipientKeyEnvelope } from '@/lib/recipientEnvelope';
+import type { RecipientKeyEnvelope, RecipientSecretEnvelope } from '@/lib/recipientEnvelope';
 import NotebookViewer from '@/components/NotebookViewer';
 import { protectedViewKind, protectedViewLabel, type ProtectedViewKind } from '@/lib/protectedView';
 
@@ -53,6 +53,8 @@ type Meta = {
   recipientAddress?: string;
   recipientEnvelope?: RecipientKeyEnvelope;
   thresholdProtected?: boolean;
+  approvalGranted?: boolean;
+  approvalRequestId?: string;
   maxDownloads?: number;
   remainingDownloads?: number;
   accessMode?: 'download' | 'view';
@@ -82,7 +84,7 @@ export default function Downloader() {
   const [packageFileId, setPackageFileId] = useState('');
   const [packageName, setPackageName] = useState('');
   const needsPass = useMemo(
-    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope && !meta.thresholdProtected),
+    () => Boolean(meta && !meta.rawKeyBase64 && !meta.recipientEnvelope && !meta.thresholdProtected && !meta.approvalGranted),
     [meta]
   );
 
@@ -219,7 +221,7 @@ export default function Downloader() {
 
   async function downloadAndDecrypt(validatedMeta: Meta | null = meta) {
     if (!validatedMeta) return;
-    if (validatedMeta.thresholdProtected) {
+    if (validatedMeta.thresholdProtected && !validatedMeta.approvalGranted) {
       toast.error('Tệp này cần phê duyệt từ kho. Hãy dùng quy trình phê duyệt trong trang điều khiển.');
       return;
     }
@@ -236,7 +238,29 @@ export default function Downloader() {
       const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) throw new Error('Trình duyệt không hỗ trợ Web Crypto API');
       let raw: ArrayBuffer;
-      if (validatedMeta.recipientEnvelope) {
+      if (validatedMeta.approvalGranted && validatedMeta.approvalRequestId) {
+        const { combineSecret } = await import('@/lib/clientThresholdShares');
+        const { unwrapSecretFromRecipientEnvelope } = await import('@/lib/clientRecipientEnvelope');
+        if (!address) throw new Error('Kết nối ví người nhận để giải mã tệp này');
+        const identity = await getLocalEncryptionIdentity(address);
+        if (!identity) throw new Error('Thiết bị này không có khoá riêng của người nhận');
+        const approvalResponse = await fetch(`/api/approvals/${validatedMeta.approvalRequestId}`);
+        const approvalData = await approvalResponse.json();
+        if (!approvalResponse.ok || !approvalData.ok) throw new Error(approvalData.error || 'Không thể nạp phiên phê duyệt');
+        const request = approvalData.request as {
+          threshold: number;
+          approvalCount: number;
+          contributions: Array<{ envelope: RecipientSecretEnvelope }>;
+        };
+        if (request.approvalCount < request.threshold) throw new Error('Phiên phê duyệt chưa đủ số người đồng ý');
+        const shares = await Promise.all(
+          request.contributions.slice(0, request.threshold).map(async (contribution) => {
+            const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, identity.privateKey);
+            return new TextDecoder().decode(plain);
+          })
+        );
+        raw = combineSecret(shares);
+      } else if (validatedMeta.recipientEnvelope) {
         const { unwrapFileKeyFromRecipientEnvelope } = await import('@/lib/clientRecipientEnvelope');
         if (!address) throw new Error('Kết nối ví người nhận để giải mã tệp này');
         const identity = await getLocalEncryptionIdentity(address);
@@ -325,7 +349,7 @@ export default function Downloader() {
             }
             const validatedMeta = await validate();
             if (validatedMeta) await downloadAndDecrypt(validatedMeta);
-          }} disabled={!address || !token || authLoading || downloading || Boolean(meta?.thresholdProtected)}>
+          }} disabled={!address || !token || authLoading || downloading || Boolean(meta?.thresholdProtected && !meta?.approvalGranted)}>
             {downloading ? 'Đang chuẩn bị...' : 'Mở trong Viewer'}
           </button>
         </div>
@@ -345,7 +369,7 @@ export default function Downloader() {
             <div className="muted">Loại</div><div>{meta.mime || 'application/octet-stream'}</div>
             <div className="muted">Dung lượng</div><div>{formatBytes(meta.sizeBytes || 0)}</div>
             <div className="muted">Bảo vệ</div>
-            <div>{meta.thresholdProtected ? 'Cần phê duyệt theo ngưỡng' : meta.recipientEnvelope ? 'E2EE theo ví người nhận' : needsPass ? 'Khoá bằng mật khẩu' : 'Khoá thô (demo)'}</div>
+            <div>{meta.approvalGranted ? 'Token đã đủ phê duyệt' : meta.thresholdProtected ? 'Cần phê duyệt theo ngưỡng' : meta.recipientEnvelope ? 'E2EE theo ví người nhận' : needsPass ? 'Khoá bằng mật khẩu' : 'Khoá thô (demo)'}</div>
             <div className="muted">Quyền sử dụng</div>
             <div>{meta.accessMode === 'view' ? 'Chỉ xem trong Viewer' : 'Xem trong Viewer và được tải gói mã hóa'}</div>
             <div className="muted">Lượt tải còn lại</div>
@@ -368,8 +392,11 @@ export default function Downloader() {
               </button>
             </div>
           )}
-          {meta.thresholdProtected && (
+          {meta.thresholdProtected && !meta.approvalGranted && (
             <div className="mt-3 text-xs text-cyan-300">Mở trang điều khiển và tạo yêu cầu phê duyệt theo ngưỡng cho tệp này.</div>
+          )}
+          {meta.approvalGranted && (
+            <div className="mt-3 text-xs text-cyan-300">Token này đã được A+B phê duyệt cho ví hiện tại. Viewer sẽ ghép khoá từ các share đã bọc riêng cho bạn.</div>
           )}
         </div>
       )}
