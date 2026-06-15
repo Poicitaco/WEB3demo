@@ -2,8 +2,8 @@
 
 \usepackage{fontspec}
 \setmainfont{TeX Gyre Termes}
-\setsansfont{TeX Gyre Heros}
-\setmonofont{DejaVu Sans Mono}
+\setsansfont{TeX Gyre Termes}
+\setmonofont{TeX Gyre Termes}
 \usepackage[vietnamese]{babel}
 \usepackage[a4paper,top=2.5cm,bottom=3cm,left=3cm,right=2cm]{geometry}
 \usepackage{graphicx}
@@ -25,6 +25,8 @@
 \usepackage{titlesec}
 \usepackage{listings}
 \usepackage{pdflscape}
+\usepackage{xurl}
+\usepackage{seqsplit}
 
 \graphicspath{{images/}{diagrams/}}
 \setlength{\parindent}{1cm}
@@ -54,7 +56,7 @@
 \titlespacing*{\subsection}{0pt}{12pt}{4pt}
 
 \lstset{
-  basicstyle=\ttfamily\small,
+  basicstyle=\rmfamily\small,
   breaklines=true,
   frame=single,
   columns=fullflexible,
@@ -63,6 +65,8 @@
 
 \newcommand{\projectname}{WEB3demo}
 \newcommand{\reporttitle}{HỆ THỐNG CHIA SẺ TÀI LIỆU BẢO MẬT DỰA TRÊN VÍ BLOCKCHAIN VÀ PHÊ DUYỆT NHIỀU NGƯỜI}
+\newcommand{\code}[1]{{\small\rmfamily #1}}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
 \hypersetup{
   pdftitle={Báo cáo môn Kỹ thuật phần mềm - WEB3demo},

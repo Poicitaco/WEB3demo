@@ -50,23 +50,25 @@ UI module & Dashboard, upload wizard, downloader, viewer và thông báo. \\ \hl
 
 Hệ thống sử dụng SQLite cho metadata. Dữ liệu file thực tế không lưu trong database mà lưu ở storage dưới dạng ciphertext, còn database lưu cid và thông tin quyền.
 
-\begin{longtable}{|p{4cm}|p{9.5cm}|}
+\small
+\begin{longtable}{|p{4.6cm}|p{8.5cm}|}
 \caption{Các bảng dữ liệu chính} \\
 \hline
 \textbf{Bảng} & \textbf{Vai trò} \\ \hline
-\texttt{files} & Lưu metadata tài liệu: owner, cid, tên file, mime, kích thước, iv, access mode, version, vault, trạng thái hủy. \\ \hline
-\texttt{tokens} & Lưu token truy cập, file tương ứng, người nhận, thời hạn, trạng thái thu hồi và mục đích token. \\ \hline
-\texttt{encryption\_identities} & Lưu public key của ví và chữ ký xác nhận public key thuộc về ví đó. \\ \hline
-\texttt{key\_envelopes} & Lưu key envelope cho token đích danh. \\ \hline
-\texttt{vaults} & Lưu thông tin kho nhóm. \\ \hline
-\texttt{vault\_members} & Lưu thành viên kho và vai trò owner/editor/viewer. \\ \hline
-\texttt{vault\_threshold\_policies} & Lưu chính sách phê duyệt ngưỡng của kho. \\ \hline
-\texttt{threshold\_file\_shares} & Lưu các share đã mã hóa cho từng thành viên. \\ \hline
-\texttt{approval\_requests} & Lưu yêu cầu truy cập của người nhận. \\ \hline
-\texttt{approval\_contributions} & Lưu đóng góp phê duyệt của từng người duyệt. \\ \hline
-\texttt{audit\_events} & Lưu nhật ký hành động quan trọng; có trigger ngăn sửa/xóa. \\ \hline
-\texttt{rate\_limits} & Lưu bộ đếm giới hạn request cho API nhạy cảm. \\ \hline
+\seqsplit{files} & Lưu metadata tài liệu: owner, cid, tên file, mime, kích thước, iv, access mode, version, vault, trạng thái hủy. \\ \hline
+\seqsplit{tokens} & Lưu token truy cập, file tương ứng, người nhận, thời hạn, trạng thái thu hồi và mục đích token. \\ \hline
+\seqsplit{encryption\_identities} & Lưu public key của ví và chữ ký xác nhận public key thuộc về ví đó. \\ \hline
+\seqsplit{key\_envelopes} & Lưu key envelope cho token đích danh. \\ \hline
+\seqsplit{vaults} & Lưu thông tin kho nhóm. \\ \hline
+\seqsplit{vault\_members} & Lưu thành viên kho và vai trò owner/editor/viewer. \\ \hline
+\seqsplit{vault\_threshold\_policies} & Lưu chính sách phê duyệt ngưỡng của kho. \\ \hline
+\seqsplit{threshold\_file\_shares} & Lưu các share đã mã hóa cho từng thành viên. \\ \hline
+\seqsplit{approval\_requests} & Lưu yêu cầu truy cập của người nhận. \\ \hline
+\seqsplit{approval\_contributions} & Lưu đóng góp phê duyệt của từng người duyệt. \\ \hline
+\seqsplit{audit\_events} & Lưu nhật ký hành động quan trọng; có trigger ngăn sửa/xóa. \\ \hline
+\seqsplit{rate\_limits} & Lưu bộ đếm giới hạn request cho API nhạy cảm. \\ \hline
 \end{longtable}
+\normalsize
 
 Một số quan hệ quan trọng:
 
@@ -81,24 +83,26 @@ Một số quan hệ quan trọng:
 \section*{3.4. Thiết kế API}
 \addcontentsline{toc}{section}{3.4. Thiết kế API}
 
-\begin{longtable}{|p{4.5cm}|p{9cm}|}
+\small
+\begin{longtable}{|p{1.8cm}|p{4.5cm}|p{6.8cm}|}
 \caption{Nhóm API chính} \\
 \hline
-\textbf{Endpoint} & \textbf{Mục đích} \\ \hline
-\texttt{POST /api/auth/start} & Sinh thông điệp nonce để ví ký. \\ \hline
-\texttt{POST /api/auth/verify} & Xác minh chữ ký ví và tạo session. \\ \hline
-\texttt{POST /api/storage/upload} & Nhận ciphertext và lưu vào provider storage. \\ \hline
-\texttt{GET /api/storage/get} & Trả ciphertext nếu token hoặc approval hợp lệ. \\ \hline
-\texttt{POST /api/files} & Tạo metadata file, token và share nếu có. \\ \hline
-\texttt{DELETE /api/files/[id]} & Chủ sở hữu hủy tài liệu. \\ \hline
-\texttt{POST /api/tokens/issue} & Cấp token mới cho file. \\ \hline
-\texttt{POST /api/tokens/validate} & Kiểm tra token trước khi mở file. \\ \hline
-\texttt{POST /api/tokens/revoke} & Thu hồi token. \\ \hline
-\texttt{GET /api/approvals} & Liệt kê yêu cầu phê duyệt liên quan đến người dùng. \\ \hline
-\texttt{POST /api/approvals/[id]/approve} & Gửi contribution phê duyệt cho yêu cầu. \\ \hline
-\texttt{GET /api/audit} & Truy vấn audit event được phép xem. \\ \hline
-\texttt{GET /api/health} & Kiểm tra database và provider storage. \\ \hline
+\textbf{Phương thức} & \textbf{Endpoint} & \textbf{Mục đích} \\ \hline
+POST & \seqsplit{/api/auth/start} & Sinh thông điệp nonce để ví ký. \\ \hline
+POST & \seqsplit{/api/auth/verify} & Xác minh chữ ký ví và tạo session. \\ \hline
+POST & \seqsplit{/api/storage/upload} & Nhận ciphertext và lưu vào provider storage. \\ \hline
+GET & \seqsplit{/api/storage/get} & Trả ciphertext nếu token hoặc approval hợp lệ. \\ \hline
+POST & \seqsplit{/api/files} & Tạo metadata file, token và share nếu có. \\ \hline
+DELETE & \seqsplit{/api/files/[id]} & Chủ sở hữu hủy tài liệu. \\ \hline
+POST & \seqsplit{/api/tokens/issue} & Cấp token mới cho file. \\ \hline
+POST & \seqsplit{/api/tokens/validate} & Kiểm tra token trước khi mở file. \\ \hline
+POST & \seqsplit{/api/tokens/revoke} & Thu hồi token. \\ \hline
+GET & \seqsplit{/api/approvals} & Liệt kê yêu cầu phê duyệt liên quan đến người dùng. \\ \hline
+POST & \seqsplit{/api/approvals/[id]/approve} & Gửi contribution phê duyệt cho yêu cầu. \\ \hline
+GET & \seqsplit{/api/audit} & Truy vấn audit event được phép xem. \\ \hline
+GET & \seqsplit{/api/health} & Kiểm tra database và provider storage. \\ \hline
 \end{longtable}
+\normalsize
 
 \section*{3.5. Thiết kế luồng upload và chia sẻ}
 \addcontentsline{toc}{section}{3.5. Thiết kế luồng upload và chia sẻ}
@@ -109,9 +113,9 @@ Luồng upload gồm các bước:
   \item Người dùng kết nối ví và có session hợp lệ.
   \item Người dùng chọn file trong upload wizard.
   \item Trình duyệt tạo khóa mã hóa và mã hóa file bằng Web Crypto.
-  \item Client upload ciphertext lên \texttt{/api/storage/upload}.
-  \item Storage trả về \texttt{cid}.
-  \item Client gửi metadata, iv, access mode và key material hợp lệ tới \texttt{/api/files}.
+  \item Client upload ciphertext lên \code{/api/storage/upload}.
+  \item Storage trả về \code{cid}.
+  \item Client gửi metadata, iv, access mode và key material hợp lệ tới \code{/api/files}.
   \item Backend lưu metadata, tạo token ban đầu và ghi audit event.
 \end{enumerate}
 
@@ -141,29 +145,30 @@ Các quy tắc chính:
 \section*{3.7. Thiết kế giao diện}
 \addcontentsline{toc}{section}{3.7. Thiết kế giao diện}
 
-Giao diện được chia thành các màn hình chính: trang giới thiệu, upload, dashboard và download/viewer. Thiết kế mới dùng nhận diện tối, có hiệu ứng chuyển động và logo riêng.
+Giao diện gồm bốn màn hình chính: giới thiệu, upload, dashboard và viewer. Các màn hình dùng chung hệ nhận diện, chuyển động và logo của dự án.
 
+\clearpage
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{01-landing.png}
+\includegraphics[width=\textwidth,height=0.74\textheight,keepaspectratio]{live-home.png}
 \caption{Trang giới thiệu hệ thống}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{02-upload-wizard.png}
+\includegraphics[width=\textwidth,height=0.74\textheight,keepaspectratio]{live-upload.png}
 \caption{Upload wizard và thiết lập quyền chia sẻ}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{03-dashboard-inbox.png}
+\includegraphics[width=\textwidth,height=0.74\textheight,keepaspectratio]{live-dashboard.png}
 \caption{Dashboard quản lý tài liệu, kho và yêu cầu}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{04-download-viewer.png}
+\includegraphics[width=\textwidth,height=0.74\textheight,keepaspectratio]{live-download.png}
 \caption{Luồng nhận tài liệu và protected viewer}
 \end{figure}
 

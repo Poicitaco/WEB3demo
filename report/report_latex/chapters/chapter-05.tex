@@ -18,7 +18,7 @@ Static analysis & ESLint & Phát hiện lỗi cú pháp, lỗi React/TypeScript 
 Production build & Next.js build & Kiểm tra khả năng compile, type check và build production. \\ \hline
 API integration & Playwright request & Kiểm tra auth, token, approval, vault, audit và phân quyền. \\ \hline
 End-to-end & Playwright Chromium & Kiểm tra các luồng người dùng trên giao diện. \\ \hline
-Runtime healthcheck & \texttt{/api/health} & Kiểm tra database và storage provider khi chạy thật. \\ \hline
+Runtime healthcheck & \code{/api/health} & Kiểm tra database và storage provider khi chạy thật. \\ \hline
 \end{tabularx}
 \end{table}
 
@@ -83,7 +83,7 @@ npm run start
 \section*{5.5. Triển khai Railway và Cloudflare R2}
 \addcontentsline{toc}{section}{5.5. Triển khai Railway và Cloudflare R2}
 
-Triển khai online gồm hai phần: Railway chạy ứng dụng và Cloudflare R2 lưu ciphertext. SQLite được lưu trong Railway volume mount tại \texttt{/app/data}. Các biến môi trường quan trọng gồm \texttt{JWT\_SECRET}, \texttt{DB\_PATH}, \texttt{STORAGE\_PROVIDER} và các R2 access key.
+Triển khai online gồm hai phần: Railway chạy ứng dụng và Cloudflare R2 lưu ciphertext. SQLite được lưu trong Railway volume mount tại \code{/app/data}. Các biến môi trường quan trọng gồm JWT secret, đường dẫn database, storage provider và các R2 access key.
 
 Healthcheck sau khi deploy:
 
