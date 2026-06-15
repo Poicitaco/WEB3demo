@@ -1,137 +1,179 @@
-# WEB3demo - Hệ thống chia sẻ tài liệu mã hóa có phê duyệt nhiều ví
+# WEB3demo
 
-WEB3demo là một hệ thống chia sẻ tài liệu bảo mật cho bối cảnh học thuật: người gửi tải tài liệu lên, tài liệu được mã hóa ở trình duyệt, ciphertext được lưu trên storage, còn quyền truy cập được kiểm soát bằng ví, token, thời hạn và cơ chế phê duyệt nhiều người.
+**Secure document sharing with wallet identity, client-side encryption, threshold approval, protected viewing, and Cloudflare R2 storage.**
 
-Dự án được xây cho môn Kỹ thuật phần mềm, tập trung vào logic sản phẩm, kiến trúc hệ thống, luồng demo rõ ràng và khả năng mở rộng lên cloud.
+WEB3demo is an academic-grade secure file sharing system built for a Software Engineering course. It demonstrates how sensitive documents, such as research papers or internal academic files, can be encrypted before upload, shared through revocable access tokens, and opened only after policy checks or multi-wallet approval.
 
-## Mục tiêu sản phẩm
+The project is not just a file upload demo. It is a small product system: identity, storage, permission, approval workflow, protected viewer, audit trail, and cloud deployment are designed as one flow.
 
-Bài toán không chỉ là "mã hóa rồi tải xuống". Hệ thống hướng tới một kịch bản thực tế hơn:
+## Highlights
 
-- Tác giả A sở hữu tài liệu hoặc bài báo khoa học.
-- Tài liệu không được lưu bản gốc trên server.
-- Người nhận C không tự mở được nếu chưa có quyền.
-- Một số tài liệu cần A và B cùng duyệt trước khi C nhận được token mở.
-- Chủ sở hữu có thể thu hồi token hoặc hủy tài liệu đã gửi.
-- Hệ thống có dashboard, audit log và viewer để trình bày rõ luồng bảo vệ.
+- **Wallet-based identity**: users sign in with MetaMask by signing a nonce.
+- **Client-side encryption**: files are encrypted in the browser before storage.
+- **Zero plaintext storage**: the server stores ciphertext and metadata, not original files.
+- **Threshold approval**: for sensitive files, A and B must both approve before C receives access.
+- **Protected viewer**: recipients can open files inside a controlled view instead of downloading raw originals by default.
+- **Revocable access**: owners can revoke tokens or destroy documents.
+- **Audit trail**: sensitive operations are recorded for accountability.
+- **Cloud-ready storage**: ciphertext can be stored locally or on Cloudflare R2.
+- **Railway deployment**: Docker, healthcheck, and persistent SQLite volume are supported.
 
-## Tính năng chính
+## Product Scenario
 
-- Đăng nhập bằng ví MetaMask, không dùng mật khẩu truyền thống.
-- Mã hóa file phía client bằng Web Crypto API.
-- Lưu metadata trong SQLite, hỗ trợ Railway Volume khi deploy online.
-- Lưu ciphertext bằng local filesystem hoặc Cloudflare R2.
-- Tạo token chia sẻ có thời hạn, có thể thu hồi.
-- Hỗ trợ chế độ chỉ xem trong protected viewer.
-- Dashboard quản lý tài liệu, token, kho nhóm và phê duyệt.
-- Luồng phê duyệt ngưỡng: ví A và B cùng duyệt thì C mới mở được.
-- Hủy tài liệu bởi chủ sở hữu, đồng thời thu hồi token và approval còn liên quan.
-- Audit trail cho các hành động nhạy cảm.
-- Healthcheck `/api/health` để kiểm tra deploy.
+The system is designed around this core question:
 
-## Kiến trúc tổng quan
+> If a research document is shared with someone, how can the owner keep control over access after upload?
+
+WEB3demo answers this with a layered model:
+
+1. The browser encrypts the file before upload.
+2. The backend stores only encrypted payloads and permission metadata.
+3. Access is granted through scoped tokens.
+4. High-risk documents can require approval from multiple wallets.
+5. The viewer reduces accidental raw-file exposure.
+6. Revocation, destruction, and audit logs make the lifecycle demonstrable.
+
+## Demo Flow
+
+Recommended classroom demo uses three MetaMask accounts:
+
+| Role | Wallet | Purpose |
+| --- | --- | --- |
+| A | Owner | Uploads and controls the document |
+| B | Reviewer | Co-approves sensitive access |
+| C | Recipient | Requests and opens the protected document |
+
+Demo script:
+
+1. A connects wallet and registers encryption identity.
+2. A uploads a document. Encryption happens in the browser.
+3. A creates a threshold-protected sharing flow.
+4. C requests access.
+5. A approves. Access is still blocked because the threshold is not met.
+6. B connects wallet and approves.
+7. The system issues an approval token for C.
+8. C opens the document in the protected viewer.
+9. A revokes the token or destroys the document.
+10. The dashboard and audit trail show the lifecycle.
+
+## Architecture
 
 ```txt
-Browser
-  |-- MetaMask ký nonce để đăng nhập
-  |-- Web Crypto mã hóa / giải mã file
-  |-- Protected viewer hiển thị nội dung được cấp quyền
-
-Next.js App
-  |-- App Router UI
-  |-- API routes: auth, files, tokens, approvals, vaults, audit, storage
-  |-- JWT session bằng cookie
-  |-- CSRF protection cho mutation API
-
-Database
-  |-- SQLite
-  |-- Local: data/app.sqlite
-  |-- Railway: /app/data/app.sqlite qua volume
-
-Storage
-  |-- local: thư mục storage/
-  |-- r2: Cloudflare R2 bucket, ví dụ r2web3
+┌─────────────────────────────────────────────────────────────┐
+│ Browser                                                     │
+│ - MetaMask wallet signature                                 │
+│ - Web Crypto encryption/decryption                          │
+│ - Protected document viewer                                 │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────┐
+│ Next.js Application                                          │
+│ - App Router UI                                              │
+│ - API routes for auth, files, tokens, approvals, audit       │
+│ - JWT cookie session                                         │
+│ - CSRF protection                                            │
+└───────────────┬──────────────────────────────┬──────────────┘
+                │                              │
+┌───────────────▼──────────────┐   ┌───────────▼──────────────┐
+│ SQLite Metadata DB            │   │ Object Storage            │
+│ - users/wallet sessions       │   │ - local filesystem         │
+│ - files/tokens/approvals      │   │ - Cloudflare R2            │
+│ - audit events                │   │ - ciphertext only          │
+└───────────────────────────────┘   └──────────────────────────┘
 ```
 
-## Tech stack
+## Tech Stack
 
-- Next.js 15, React 19, TypeScript.
-- Ethers.js cho MetaMask.
-- Web Crypto API cho mã hóa phía client.
-- better-sqlite3 cho metadata.
-- Cloudflare R2 qua S3-compatible SDK.
-- Playwright cho E2E test.
-- Docker/Railway cho deploy.
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 15, React 19, TypeScript |
+| Wallet | MetaMask, Ethers.js |
+| Crypto | Web Crypto API |
+| Backend | Next.js API routes |
+| Database | SQLite, better-sqlite3 |
+| Storage | Local filesystem or Cloudflare R2 |
+| Testing | ESLint, Playwright |
+| Deployment | Docker, Railway |
 
-## Luồng demo 3 ví
+## Security Model
 
-Chuẩn bị 3 ví MetaMask:
+WEB3demo uses a defense-in-depth approach:
 
-- A: chủ sở hữu tài liệu.
-- B: người đồng duyệt.
-- C: người nhận tài liệu.
+- The original file is never intentionally stored by the server.
+- File encryption happens before upload.
+- Storage receives ciphertext only.
+- Tokens are time-bound and revocable.
+- Threshold approval prevents single-party release for sensitive documents.
+- Audit events record important access and mutation actions.
+- Raw-key demo mode is disabled by default in production-style configuration.
 
-Kịch bản demo đề xuất:
+Important limitation:
 
-1. A đăng nhập bằng ví.
-2. A đăng ký encryption identity.
-3. A tạo kho hoặc tài liệu cần phê duyệt.
-4. A upload file, hệ thống mã hóa file trước khi upload.
-5. C yêu cầu mở tài liệu.
-6. A duyệt một lần, hệ thống vẫn chưa cấp token vì chưa đủ ngưỡng.
-7. B đăng nhập và duyệt lần hai.
-8. Khi đủ ngưỡng 2/2, hệ thống cấp approval token cho C.
-9. C nhập token, mở tài liệu trong viewer.
-10. A thu hồi token hoặc hủy tài liệu để chứng minh vòng đời quyền truy cập.
+WEB3demo is not DRM. If a user is allowed to view content, they can still copy it manually or take a photo with another device. The system focuses on cryptographic access control, lifecycle control, and accountability, not impossible promises.
 
-## Chạy local
+This is a useful point for defense: the project understands the real boundary between encryption, access control, viewer restrictions, and human-side leakage.
 
-Yêu cầu:
+## Feature Map
 
-- Node.js 20 trở lên.
-- npm.
-- MetaMask trên trình duyệt.
+| Area | Implemented |
+| --- | --- |
+| Wallet login | Yes |
+| Client-side encryption | Yes |
+| Upload encrypted file | Yes |
+| Cloudflare R2 provider | Yes |
+| Token issue/validate/revoke | Yes |
+| Protected viewer | Yes |
+| Threshold approval A + B -> C | Yes |
+| Owner document destruction | Yes |
+| Audit trail | Yes |
+| Dashboard | Yes |
+| Railway Docker deploy | Yes |
+| AI policy assistant | Not included by design |
+| ZK permission proof | Roadmap |
+| Time-locked encryption | Roadmap |
 
-Cài dependency:
+## Running Locally
+
+Requirements:
+
+- Node.js 20+
+- npm
+- MetaMask browser extension
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-Tạo file môi trường từ mẫu:
-
-```bash
-copy .env.example .env.local
-```
-
-Với Windows PowerShell có thể dùng:
+Create local environment file:
 
 ```powershell
 Copy-Item .env.example .env.local
 ```
 
-Chạy dev:
+Run development server:
 
 ```bash
 npm run dev
 ```
 
-Mở:
+Open:
 
 ```txt
 http://localhost:3000
 ```
 
-Chạy giống production để demo ổn định hơn:
+For a more reliable presentation run:
 
 ```bash
 npm run build
 npm run start
 ```
 
-## Cấu hình local storage
+## Environment Variables
 
-Nếu chỉ cần chạy toàn bộ trên máy:
+Minimal local configuration:
 
 ```env
 JWT_SECRET=replace-with-a-long-random-secret
@@ -142,11 +184,7 @@ ALLOW_RAW_KEYS=false
 NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
 ```
 
-File mã hóa sẽ nằm trong `storage/`, metadata nằm trong `data/app.sqlite`.
-
-## Cấu hình local nhưng dùng Cloudflare R2
-
-Đây là phương án dự phòng tốt nếu Railway chưa ổn: app chạy local, nhưng file mã hóa vẫn lưu cloud.
+Local app with Cloudflare R2 storage:
 
 ```env
 JWT_SECRET=replace-with-a-long-random-secret
@@ -162,18 +200,19 @@ ALLOW_RAW_KEYS=false
 NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
 ```
 
-Không commit `.env.local`, `.env.production` hoặc bất kỳ file chứa key nào.
+Never commit `.env.local`, `.env.production`, API tokens, R2 keys, or wallet secrets.
 
-## Deploy Railway
+## Railway Deployment
 
-Repository có sẵn:
+The repository includes:
 
 - `Dockerfile`
 - `railway.json`
 - `/api/health`
-- hỗ trợ `DB_PATH=/app/data/app.sqlite`
+- SQLite support through `DB_PATH`
+- Cloudflare R2 storage support
 
-Biến môi trường cần có trên Railway:
+Railway variables:
 
 ```env
 JWT_SECRET=<long_random_secret>
@@ -189,19 +228,19 @@ ALLOW_RAW_KEYS=false
 NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
 ```
 
-Railway cần volume mount tại:
+Attach a Railway volume to:
 
 ```txt
 /app/data
 ```
 
-Sau khi deploy, kiểm tra:
+Healthcheck:
 
 ```txt
 https://your-domain.up.railway.app/api/health
 ```
 
-Kết quả kỳ vọng:
+Expected response:
 
 ```json
 {
@@ -214,91 +253,111 @@ Kết quả kỳ vọng:
 ## Scripts
 
 ```bash
-npm run dev          # chạy dev server
-npm run build        # build production
-npm run start        # chạy production server
-npm run lint         # kiểm tra lint
-npm run test:e2e     # chạy Playwright E2E
-npm run clean        # xóa cache build
+npm run dev          # start development server
+npm run build        # production build
+npm run start        # start production server
+npm run lint         # static checks
+npm run test:e2e     # Playwright E2E tests
+npm run clean        # remove build cache
 ```
 
-## Cấu trúc thư mục
+## Main API Surface
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/auth/start` | Create wallet-login nonce |
+| `POST /api/auth/verify` | Verify wallet signature |
+| `POST /api/storage/upload` | Upload ciphertext |
+| `GET /api/storage/get` | Retrieve ciphertext after access validation |
+| `POST /api/files` | Create file metadata |
+| `DELETE /api/files/[id]` | Destroy owner document |
+| `POST /api/tokens/issue` | Issue access token |
+| `POST /api/tokens/validate` | Validate access token |
+| `POST /api/tokens/revoke` | Revoke access token |
+| `GET /api/approvals` | List approval requests |
+| `POST /api/approvals/[id]/approve` | Approve threshold request |
+| `GET /api/audit` | Read authorized audit events |
+| `GET /api/health` | Runtime healthcheck |
+
+## Project Structure
 
 ```txt
 src/
   app/
-    api/             # API routes
-    dashboard/       # dashboard quản lý
-    download/        # trang nhận/mở tài liệu
-    upload/          # trang upload
-  components/        # UI component
-  contexts/          # Auth context
-  lib/               # db, storage, crypto helpers, csrf, audit
-docs/                # tài liệu demo, triển khai, test plan
-public/              # logo và visual assets
-tests/               # Playwright E2E
-data/                # SQLite local, không dùng để commit dữ liệu thật
-storage/             # ciphertext local, không dùng để commit dữ liệu thật
+    api/             API routes
+    dashboard/       dashboard workspace
+    download/        recipient and viewer flow
+    upload/          upload and encryption flow
+  components/        product UI components
+  contexts/          auth context
+  lib/               db, storage, crypto helpers, csrf, audit
+docs/                deployment, demo, testing, report notes
+public/              brand assets and visuals
+tests/               Playwright E2E tests
+data/                local SQLite runtime data
+storage/             local ciphertext runtime data
 ```
 
-## API chính
+## Documentation
 
-- `POST /api/auth/start`: tạo nonce đăng nhập.
-- `POST /api/auth/verify`: xác thực chữ ký ví.
-- `POST /api/storage/upload`: upload ciphertext.
-- `GET /api/storage/get`: lấy ciphertext nếu token hợp lệ.
-- `POST /api/files`: tạo metadata tài liệu.
-- `DELETE /api/files/[id]`: chủ sở hữu hủy tài liệu.
-- `POST /api/tokens/issue`: cấp token.
-- `POST /api/tokens/validate`: kiểm tra token.
-- `POST /api/tokens/revoke`: thu hồi token.
-- `GET /api/approvals`: danh sách yêu cầu phê duyệt.
-- `POST /api/approvals/[id]/approve`: duyệt yêu cầu.
-- `GET /api/audit`: xem audit event.
-- `GET /api/health`: kiểm tra app/database.
+- `docs/RAILWAY_DEPLOYMENT.md`: Railway setup guide.
+- `docs/DEPLOYMENT.md`: general deployment notes.
+- `docs/REHEARSAL_SCRIPT.md`: Vietnamese defense script.
+- `docs/REPORT_UPDATE_NOTES.md`: report update checklist.
+- `docs/SOFTWARE_ENGINEERING.md`: software engineering analysis.
+- `docs/TEST_PLAN.md`: verification strategy.
+- `docs/UI_HANDOFF.md`: UI/UX handoff notes.
+- `docs/screenshots/`: screenshots for report and slides.
 
-## Tài liệu liên quan
+## Verification
 
-- `docs/RAILWAY_DEPLOYMENT.md`: hướng dẫn Railway chi tiết.
-- `docs/DEPLOYMENT.md`: hướng dẫn deploy tổng quát.
-- `docs/REHEARSAL_SCRIPT.md`: kịch bản nói khi bảo vệ.
-- `docs/REPORT_UPDATE_NOTES.md`: gợi ý cập nhật báo cáo.
-- `docs/SOFTWARE_ENGINEERING.md`: phân tích kỹ thuật phần mềm.
-- `docs/TEST_PLAN.md`: chiến lược kiểm thử.
-- `docs/UI_HANDOFF.md`: ghi chú UI/UX.
-- `docs/screenshots/`: ảnh chụp giao diện dùng cho báo cáo.
-
-## Giới hạn bảo mật cần nói rõ khi bảo vệ
-
-Hệ thống bảo vệ file ở mức mã hóa và quyền truy cập, nhưng không thể ngăn tuyệt đối mọi hành vi ngoài hệ thống:
-
-- Nếu người dùng được xem, họ vẫn có thể chụp màn hình bằng thiết bị khác.
-- Viewer chỉ đọc giúp giảm rủi ro tải bản gốc, không phải DRM tuyệt đối.
-- Audit log giúp phát hiện và truy vết hành vi bất thường.
-- Muốn tiến xa hơn có thể thêm watermark cá nhân hóa, phát hiện chụp màn hình, ZK permission proof, Merkle audit receipt hoặc time-locked encryption.
-
-Đây là điểm nên trình bày thẳng với giảng viên: hệ thống không hứa "không thể bị copy", mà thiết kế để giảm rủi ro, kiểm soát quyền, ghi nhận truy cập và chứng minh vòng đời bảo vệ tài liệu.
-
-## Trạng thái hiện tại
-
-Đã có bản demo hoạt động với:
-
-- Local filesystem hoặc Cloudflare R2.
-- SQLite local hoặc Railway volume.
-- UI dashboard mới.
-- Luồng token và approval nhiều ví.
-- Protected viewer.
-- Healthcheck và Docker deploy.
-
-Trước khi demo, nên chạy:
+Recommended checks before a demo:
 
 ```bash
 npm run lint
 npm run build
 ```
 
-Sau đó chọn một trong hai cách:
+If time allows:
 
-- Online: Railway + R2.
-- Dự phòng: local app + R2.
+```bash
+npm run test:e2e
+```
+
+Current verified paths:
+
+- Local production build.
+- Local app with R2 storage.
+- Railway-oriented Docker build configuration.
+- Token lifecycle and threshold approval flow through E2E tests.
+
+## Roadmap
+
+Near-term:
+
+- Watermarked protected viewer per recipient.
+- Better viewer support for notebooks and rich document types.
+- Exportable audit receipt for each sharing session.
+
+Research direction:
+
+- Merkle-tree audit receipt.
+- Zero-knowledge permission proof.
+- Time-locked encryption with decentralized time beacons.
+- Stronger device/session risk scoring.
+
+## Academic Positioning
+
+WEB3demo can be presented as a software engineering project with:
+
+- Requirements analysis: secure document sharing and controlled disclosure.
+- Architecture design: client crypto, metadata API, storage abstraction.
+- Security design: authentication, CSRF, revocation, audit trail.
+- Workflow design: threshold approval and document lifecycle.
+- Deployment design: Railway + R2 + persistent volume.
+- Testing strategy: lint, build, Playwright E2E, healthcheck.
+
+The key argument is simple:
+
+> The system does not claim to make copying impossible. It makes access intentional, revocable, auditable, and harder to misuse.
 
