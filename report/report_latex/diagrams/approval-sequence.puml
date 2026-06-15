@@ -37,9 +37,13 @@ B -> FE : Duyệt yêu cầu
 FE -> API : POST /api/approvals/{id}/approve
 API -> DB : Lưu approval_contributions(B)
 API -> DB : Cập nhật approved + tạo approval token
-API --> FE : Trả token cho C
+API --> FE : Xác nhận đã đủ ngưỡng
 
-C -> FE : Nhập approval token
+C -> FE : Kiểm tra yêu cầu đã gửi
+FE -> API : GET /api/approvals/{id}
+API -> DB : Đọc trạng thái + approval token
+API --> FE : approved + token dành cho C
+C -> FE : Mở tài liệu bằng approval token
 FE -> API : POST /api/tokens/validate
 API -> DB : Kiểm tra token, requester, expiry
 FE -> API : GET /api/storage/get

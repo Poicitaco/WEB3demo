@@ -3,7 +3,7 @@ skinparam defaultFontName "TeX Gyre Termes"
 left to right direction
 skinparam packageStyle rectangle
 skinparam shadowing false
-skinparam actorStyle awesome
+skinparam linetype ortho
 skinparam usecase {
   BackgroundColor #F7F4EF
   BorderColor #2E2A27
@@ -13,7 +13,7 @@ skinparam usecase {
 actor "A\nChủ sở hữu" as Owner
 actor "B\nNgười phê duyệt" as Reviewer
 actor "C\nNgười nhận" as Recipient
-actor "Cloudflare R2" as R2
+rectangle "Cloudflare R2\n<<external system>>" as R2 #F1EDFF
 
 rectangle "WEB3demo" {
   usecase "Đăng nhập bằng ví" as UCAuth
@@ -43,13 +43,13 @@ Owner --> UCThreshold
 Recipient --> UCRequest
 Owner --> UCApprove
 Reviewer --> UCApprove
-UCApprove --> UCToken : đủ ngưỡng
+UCApprove ..> UCToken : <<include>>\nkhi đủ ngưỡng
 Recipient --> UCView
 Owner --> UCRevoke
 Owner --> UCDestroy
 Owner --> UCAudit
 Reviewer --> UCAudit
 Recipient --> UCAudit
-UCUpload --> UCStore
+UCUpload ..> UCStore : <<include>>
 UCStore --> R2
 @enduml

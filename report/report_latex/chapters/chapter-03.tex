@@ -10,12 +10,14 @@ Chương này trình bày thiết kế hệ thống \projectname{} ở mức ki�
 
 Hệ thống được chia thành ba vùng chính: trình duyệt người dùng, ứng dụng Next.js và tầng lưu trữ. Trình duyệt chịu trách nhiệm tương tác ví và mã hóa/giải mã. Backend chịu trách nhiệm xác thực, phân quyền, quản lý metadata và audit. Storage chỉ lưu ciphertext.
 
-\begin{figure}[H]
+\begin{landscape}
+\begin{figure}[p]
 \centering
-\includegraphics[width=\textwidth]{architecture.png}
+\includegraphics[width=0.95\linewidth,height=0.76\textheight,keepaspectratio]{architecture.png}
 \caption{Kiến trúc tổng quan của hệ thống}
 \label{fig:architecture}
 \end{figure}
+\end{landscape}
 
 Cách phân tách này có các ưu điểm:
 
