@@ -3,8 +3,9 @@ import { SignJWT, jwtVerify } from 'jose';
 const alg = 'HS256';
 
 function getSecret() {
-  const secret = process.env.JWT_SECRET || 'dev_change_me_secret';
-  return new TextEncoder().encode(secret);
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET is required in production');
+  return new TextEncoder().encode(secret || 'dev_change_me_secret');
 }
 
 export async function signSession(address: string, ttlMinutes = 60 * 24) {

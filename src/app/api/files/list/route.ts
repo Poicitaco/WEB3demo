@@ -19,7 +19,8 @@ export async function GET() {
        FROM files f
        LEFT JOIN vaults v ON v.id = f.vault_id
        LEFT JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = ?
-       WHERE (f.vault_id IS NULL AND f.owner_address = ?) OR m.address IS NOT NULL
+       WHERE f.destroyed_at IS NULL
+         AND ((f.vault_id IS NULL AND f.owner_address = ?) OR m.address IS NOT NULL)
        ORDER BY f.created_at DESC LIMIT 500`
     )
     .all(address.toLowerCase(), address) as Row[];

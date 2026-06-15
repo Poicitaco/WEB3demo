@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
+import ChoiceSelect from '@/components/ChoiceSelect';
 
 type Vault = {
   id: string;
@@ -72,11 +73,11 @@ export default function VaultManager() {
       body: JSON.stringify({ name }),
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to create vault');
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Không thể tạo kho');
     setName('');
     setSelected(data.vaultId as string);
     await loadVaults();
-    toast.success('Vault created');
+    toast.success('Đã tạo kho');
   }
 
   async function saveMember() {
@@ -87,10 +88,10 @@ export default function VaultManager() {
       body: JSON.stringify({ memberAddress, role }),
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to add member');
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Không thể thêm thành viên');
     setMemberAddress('');
     await Promise.all([loadMembers(selected), loadVaults(), loadPolicy(selected)]);
-    toast.success('Vault member saved');
+    toast.success('Đã lưu thành viên kho');
   }
 
   async function removeMember(address: string) {
@@ -101,9 +102,9 @@ export default function VaultManager() {
       body: JSON.stringify({ memberAddress: address }),
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to remove member');
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Không thể xoá thành viên');
     await Promise.all([loadMembers(selected), loadVaults(), loadPolicy(selected)]);
-    toast.success('Vault member removed');
+    toast.success('Đã xoá thành viên kho');
   }
 
   async function saveThresholdPolicy() {
@@ -114,9 +115,9 @@ export default function VaultManager() {
       body: JSON.stringify({ threshold }),
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to save threshold policy');
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Không thể lưu chính sách ngưỡng');
     await loadPolicy(selected);
-    toast.success('Threshold approval policy enabled');
+    toast.success('Đã bật chính sách phê duyệt theo ngưỡng');
   }
 
   async function disableThresholdPolicy() {
@@ -126,9 +127,9 @@ export default function VaultManager() {
       headers: { 'x-csrf': await csrfToken() },
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) return toast.error(data.error || 'Failed to disable threshold policy');
+    if (!response.ok || !data.ok) return toast.error(data.error || 'Không thể tắt chính sách ngưỡng');
     setPolicy(null);
-    toast.success('Threshold approval policy disabled');
+    toast.success('Đã tắt chính sách phê duyệt theo ngưỡng');
   }
 
   const activeVault = vaults.find((vault) => vault.id === selected);
@@ -137,12 +138,12 @@ export default function VaultManager() {
     <div className="glass p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold">Collaborative Vaults</div>
-          <div className="text-xs muted">Owners and editors manage encrypted files. Viewers can inspect vault metadata.</div>
+          <div className="text-sm font-semibold">Kho cộng tác</div>
+          <div className="text-xs muted">Chủ kho và biên tập viên quản lý tệp mã hoá. Người xem có thể kiểm tra siêu dữ liệu.</div>
         </div>
-        <div className="flex gap-2">
-          <input className="input" placeholder="New vault name" value={name} onChange={(event) => setName(event.target.value)} />
-          <button className="btn-primary whitespace-nowrap" disabled={!name.trim()} onClick={createVault}>Create Vault</button>
+        <div className="vault-create-row">
+          <input className="input" placeholder="Tên kho mới" value={name} onChange={(event) => setName(event.target.value)} />
+          <button className="btn-primary whitespace-nowrap" disabled={!name.trim()} onClick={createVault}>Tạo kho</button>
         </div>
       </div>
 
@@ -154,22 +155,27 @@ export default function VaultManager() {
             onClick={() => setSelected(vault.id)}
           >
             <div className="font-semibold">{vault.name}</div>
-            <div className="text-xs muted mt-1">{vault.role} | {vault.member_count} members | {vault.file_count} files</div>
+            <div className="text-xs muted mt-1">{vault.role} | {vault.member_count} thành viên | {vault.file_count} tệp</div>
           </button>
         ))}
       </div>
 
       {activeVault && (
         <div className="border-t border-[var(--card-border)] pt-4 space-y-3">
-          <div className="text-sm font-semibold">{activeVault.name} members</div>
+          <div className="text-sm font-semibold">Thành viên của {activeVault.name}</div>
           {activeVault.role === 'owner' && (
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-2">
-              <input className="input" placeholder="Member 0x address" value={memberAddress} onChange={(event) => setMemberAddress(event.target.value)} />
-              <select className="input" value={role} onChange={(event) => setRole(event.target.value as 'editor' | 'viewer')}>
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-              </select>
-              <button className="btn-secondary" onClick={saveMember}>Add / Update</button>
+            <div className="vault-member-form">
+              <input className="input" placeholder="Địa chỉ 0x của thành viên" value={memberAddress} onChange={(event) => setMemberAddress(event.target.value)} />
+              <ChoiceSelect
+                ariaLabel="Vai trò thành viên"
+                value={role}
+                options={[
+                  { value: 'viewer', label: 'Người xem' },
+                  { value: 'editor', label: 'Biên tập viên' },
+                ]}
+                onChange={(value) => setRole(value as 'editor' | 'viewer')}
+              />
+              <button className="btn-secondary" disabled={!/^0x[a-fA-F0-9]{40}$/.test(memberAddress)} onClick={saveMember}>Thêm / cập nhật</button>
             </div>
           )}
           <div className="space-y-2">
@@ -178,9 +184,9 @@ export default function VaultManager() {
                 <code className="break-all">{member.address}</code>
                 <div className="flex items-center gap-2">
                   <span className="badge">{member.role}</span>
-                  <span className="badge">{member.encryptionIdentity ? 'key ready' : 'missing key'}</span>
+                  <span className="badge">{member.encryptionIdentity ? 'khoá sẵn sàng' : 'thiếu khoá'}</span>
                   {activeVault.role === 'owner' && member.role !== 'owner' && (
-                    <button className="btn-secondary text-xs" onClick={() => removeMember(member.address)}>Remove</button>
+                    <button className="btn-secondary text-xs" onClick={() => removeMember(member.address)}>Xoá</button>
                   )}
                 </div>
               </div>
@@ -188,11 +194,11 @@ export default function VaultManager() {
           </div>
           {activeVault.role === 'owner' && (
             <div className="border-t border-[var(--card-border)] pt-3 space-y-2">
-              <div className="text-sm font-semibold">Threshold approval</div>
+              <div className="text-sm font-semibold">Phê duyệt theo ngưỡng</div>
               <div className="text-xs muted">
                 {policy
-                  ? `Enabled: ${policy.threshold} of ${policy.total_shares} members are required.`
-                  : 'Disabled. Every member must enable an encryption identity before this can be enabled.'}
+                  ? `Đang bật: cần ${policy.threshold} trên ${policy.total_shares} thành viên.`
+                  : 'Đang tắt. Mọi thành viên phải bật định danh mã hoá trước khi có thể kích hoạt.'}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -203,8 +209,8 @@ export default function VaultManager() {
                   value={threshold}
                   onChange={(event) => setThreshold(Number(event.target.value))}
                 />
-                <button className="btn-secondary" onClick={saveThresholdPolicy}>Enable / Update</button>
-                {policy && <button className="btn-secondary" onClick={disableThresholdPolicy}>Disable</button>}
+                <button className="btn-secondary" onClick={saveThresholdPolicy}>Bật / cập nhật</button>
+                {policy && <button className="btn-secondary" onClick={disableThresholdPolicy}>Tắt</button>}
               </div>
             </div>
           )}

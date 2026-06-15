@@ -16,7 +16,9 @@ export async function issueCsrf() {
 }
 
 export async function verifyCsrf(req: Request) {
-  if ((process.env.REQUIRE_CSRF || '').toLowerCase() !== 'true') return true;
+  const configured = process.env.REQUIRE_CSRF?.toLowerCase();
+  const required = configured ? configured === 'true' : process.env.NODE_ENV === 'production';
+  if (!required) return true;
   const header = req.headers.get('x-csrf') || '';
   const c = await cookies();
   const cookie = c.get('csrf')?.value || '';

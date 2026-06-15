@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { ethers } from 'ethers';
 import type { Eip1193Provider } from 'ethers';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
-import EncryptionIdentityControl from '@/components/EncryptionIdentityControl';
+
+const EncryptionIdentityControl = dynamic(() => import('@/components/EncryptionIdentityControl'), {
+  loading: () => <div className="account-menu-note">Đang tải định danh mã hoá...</div>,
+});
 
 type EthereumProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -16,17 +19,12 @@ function short(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function addrHue(addr: string) {
-  let h = 0;
-  for (let i = 2; i < addr.length; i++) h = (h * 31 + addr.charCodeAt(i)) % 360;
-  return h;
-}
-
 export default function AccountMenu() {
   const { address, setAddress } = useAuth();
   const { success, error: toastError, info } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -45,11 +43,12 @@ export default function AccountMenu() {
       if (!accs || accs.length === 0) {
         await fetch('/api/auth/logout', { method: 'POST' });
         setAddress(null);
-        info('Wallet disconnected');
+        info('Đã ngắt kết nối ví');
         return;
       }
       try {
-        const provider = new ethers.BrowserProvider(eth);
+        const { BrowserProvider } = await import('ethers');
+        const provider = new BrowserProvider(eth);
         const signer = await provider.getSigner();
         const addr = (await signer.getAddress());
         const start = await fetch('/api/auth/start', { method: 'POST' }).then((r) => r.json());
@@ -58,16 +57,16 @@ export default function AccountMenu() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ address: addr, signature: sig })
         }).then(r => r.json());
-        if (!verify.ok) throw new Error(verify.error || 'Re-login failed');
+        if (!verify.ok) throw new Error(verify.error || 'Không thể đăng nhập lại bằng ví');
         setAddress(addr);
-        success('Switched account');
+        success('Đã chuyển tài khoản');
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         toastError(msg);
       }
     };
     const onChain = (chainId: unknown) => {
-      info(`Network changed (${String(chainId)})`);
+      info(`Đã đổi mạng (${String(chainId)})`);
     };
     eth.on?.('accountsChanged', onAccounts as (...args: unknown[]) => void);
     eth.on?.('chainChanged', onChain);
@@ -81,8 +80,9 @@ export default function AccountMenu() {
     setLoading(true);
     try {
       const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-      if (!eth) throw new Error('MetaMask not found');
-      const provider = new ethers.BrowserProvider(eth as Eip1193Provider);
+      if (!eth) throw new Error('Không tìm thấy MetaMask');
+      const { BrowserProvider } = await import('ethers');
+      const provider = new BrowserProvider(eth as Eip1193Provider);
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
       const addr = await signer.getAddress();
@@ -93,9 +93,9 @@ export default function AccountMenu() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, signature: sig }),
       }).then((r) => r.json());
-      if (!verify.ok) throw new Error(verify.error || 'Login failed');
+      if (!verify.ok) throw new Error(verify.error || 'Đăng nhập bằng ví thất bại');
       setAddress(addr);
-      success('Wallet connected');
+      success('Đã kết nối ví');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toastError(msg);
@@ -109,7 +109,7 @@ export default function AccountMenu() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       setAddress(null);
-      success('Signed out');
+      success('Đã đăng xuất');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toastError(msg);
@@ -120,8 +120,12 @@ export default function AccountMenu() {
 
   const copy = async () => {
     if (!address) return;
-    await navigator.clipboard.writeText(address);
-    success('Address copied');
+    try {
+      await navigator.clipboard.writeText(address);
+      success('Đã sao chép địa chỉ');
+    } catch {
+      info(address);
+    }
     setOpen(false);
   };
 
@@ -147,7 +151,7 @@ export default function AccountMenu() {
     setLoading(true);
     try {
       const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
-      if (!eth) throw new Error('MetaMask not found');
+      if (!eth) throw new Error('Không tìm thấy MetaMask');
       await eth.request?.({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
       await connect();
     } catch (e) {
@@ -161,29 +165,49 @@ export default function AccountMenu() {
 
   if (!address) {
     return (
-      <button onClick={connect} disabled={loading} className="px-3 py-1.5 rounded bg-black text-white dark:bg-white dark:text-black text-sm">
-        {loading ? 'Connecting…' : 'Connect Wallet'}
+      <button type="button" onClick={connect} disabled={loading} className="btn-primary">
+        {loading ? 'Đang kết nối...' : 'Kết nối ví'}
       </button>
     );
   }
 
-  const hue = addrHue(address);
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 btn-secondary">
-        <span className="inline-flex w-5 h-5 rounded-full" style={{ background: `conic-gradient(hsl(${hue} 80% 50%), hsl(${(hue+60)%360} 80% 50%))` }} />
+      <button
+        type="button"
+        aria-label="Mở menu tài khoản"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="account-menu-trigger btn-secondary"
+      >
+        <span className="account-avatar" aria-hidden="true" />
         <span className="text-sm">{short(address)}</span>
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-72 glass p-2 text-sm">
-          <div className="px-2 py-1 muted">Account</div>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={copy}>Copy address</button>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={explorer}>View on explorer</button>
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={switchAccount}>Switch account</button>
-          <a className="block px-2 py-1 hover:text-accent-3" href="/dashboard">My files</a>
-          <EncryptionIdentityControl address={address} />
+        <div className="account-popover absolute right-0 mt-2 w-80 glass allow-overflow p-2 text-sm" role="menu">
+          <div className="account-menu-head">
+            <span className="account-avatar large" aria-hidden="true" />
+            <div>
+              <strong>Tài khoản đang dùng</strong>
+              <code>{short(address)}</code>
+            </div>
+          </div>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={copy}>Sao chép địa chỉ</button>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={explorer}>Xem trên explorer</button>
+          <button type="button" role="menuitem" className="account-menu-item" onClick={switchAccount}>Chuyển tài khoản</button>
+          <a role="menuitem" className="account-menu-item" href="/dashboard">Tệp của tôi</a>
+          <button
+            type="button"
+            role="menuitem"
+            className="account-menu-item"
+            onClick={() => setShowIdentity((value) => !value)}
+          >
+            {showIdentity ? 'Ẩn định danh mã hoá' : 'Kiểm tra định danh mã hoá'}
+          </button>
+          {showIdentity && <EncryptionIdentityControl address={address} />}
           <div className="border-t border-[rgba(255,255,255,0.12)] my-1" />
-          <button className="w-full text-left px-2 py-1 hover:text-accent-3" onClick={logout}>Sign out</button>
+          <button type="button" role="menuitem" className="account-menu-item danger" onClick={logout}>Đăng xuất</button>
         </div>
       )}
     </div>

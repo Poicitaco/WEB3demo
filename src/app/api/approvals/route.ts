@@ -17,15 +17,17 @@ export async function GET() {
     `SELECT DISTINCT r.id, r.file_id, r.requester_address, r.threshold, r.status, r.expires_at, r.created_at,
             f.title, f.name, v.name AS vault_name,
             (SELECT COUNT(*) FROM approval_contributions c WHERE c.request_id = r.id) AS approval_count,
-            CASE WHEN s.member_address IS NOT NULL THEN 1 ELSE 0 END AS can_approve
+            CASE WHEN s.member_address IS NOT NULL AND r.requester_address != ? THEN 1 ELSE 0 END AS can_approve,
+            CASE WHEN r.requester_address = ? THEN t.token ELSE NULL END AS approved_token
      FROM approval_requests r
      JOIN files f ON f.id = r.file_id
      JOIN vaults v ON v.id = f.vault_id
      JOIN vault_members vm ON vm.vault_id = f.vault_id AND vm.address = ?
      LEFT JOIN threshold_file_shares s ON s.file_id = r.file_id AND s.member_address = ?
+     LEFT JOIN tokens t ON t.approval_request_id = r.id AND t.revoked = 0
      WHERE r.requester_address = ? OR s.member_address IS NOT NULL
      ORDER BY r.created_at DESC LIMIT 200`
-  ).all(normalized, normalized, normalized);
+  ).all(normalized, normalized, normalized, normalized, normalized);
   return NextResponse.json({ ok: true, requests: rows });
 }
 
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
              JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = s.member_address
              WHERE s.file_id = f.id) AS eligible_approvers
      FROM files f JOIN threshold_files tf ON tf.file_id = f.id
-     WHERE f.id = ?`
+     WHERE f.id = ? AND f.destroyed_at IS NULL`
   ).get(fileId) as { vault_id: string; threshold: number; eligible_approvers: number } | undefined;
   if (!file || !getVaultRole(db, file.vault_id, address)) {
     return NextResponse.json({ ok: false, error: 'File not found or threshold approval unavailable' }, { status: 404 });

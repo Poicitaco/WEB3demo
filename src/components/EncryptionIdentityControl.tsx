@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { ethers } from 'ethers';
 import type { Eip1193Provider } from 'ethers';
 import {
   generateLocalEncryptionIdentity,
@@ -49,14 +48,15 @@ export default function EncryptionIdentityControl({ address }: { address: string
     setLoading(true);
     try {
       const ethereum = (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
-      if (!ethereum) throw new Error('MetaMask not found');
+      if (!ethereum) throw new Error('Không tìm thấy MetaMask');
       const identity = generateNew
         ? await generateLocalEncryptionIdentity(address)
         : await getOrCreateLocalEncryptionIdentity(address);
-      const signer = await new ethers.BrowserProvider(ethereum).getSigner();
+      const { BrowserProvider } = await import('ethers');
+      const signer = await new BrowserProvider(ethereum).getSigner();
       const signerAddress = await signer.getAddress();
       if (signerAddress.toLowerCase() !== address.toLowerCase()) {
-        throw new Error('Connected wallet does not match this account');
+        throw new Error('Ví đang kết nối không khớp với tài khoản này');
       }
       const signature = await signer.signMessage(encryptionIdentityMessage(address, identity.publicKey));
       const csrf = await fetch('/api/csrf').then((res) => res.json()).then((data) => data.csrf as string);
@@ -66,10 +66,10 @@ export default function EncryptionIdentityControl({ address }: { address: string
         body: JSON.stringify({ publicKey: identity.publicKey, signature }),
       });
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Identity registration failed');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Đăng ký định danh thất bại');
       if (generateNew) await saveLocalEncryptionIdentity(identity);
       setState('ready');
-      toast.success(generateNew ? 'Device encryption identity created' : 'Encryption identity enabled');
+      toast.success(generateNew ? 'Đã tạo định danh mã hoá cho thiết bị' : 'Đã bật định danh mã hoá');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -78,12 +78,12 @@ export default function EncryptionIdentityControl({ address }: { address: string
   }
 
   const status = {
-    checking: 'Checking encryption identity...',
-    ready: 'Encryption identity ready on this device',
-    mismatch: 'This device key does not match the registered public key',
-    'server-only': 'Public key exists, but this device has no private key',
-    'local-only': 'Device key exists but is not registered',
-    missing: 'Encryption identity is not enabled',
+    checking: 'Đang kiểm tra định danh mã hoá...',
+    ready: 'Định danh mã hoá đã sẵn sàng trên thiết bị này',
+    mismatch: 'Khoá thiết bị không khớp với khoá công khai đã đăng ký',
+    'server-only': 'Khoá công khai tồn tại nhưng thiết bị này không có khoá riêng',
+    'local-only': 'Khoá thiết bị tồn tại nhưng chưa được đăng ký',
+    missing: 'Định danh mã hoá chưa được bật',
   }[state];
 
   return (
@@ -95,7 +95,7 @@ export default function EncryptionIdentityControl({ address }: { address: string
           disabled={loading}
           onClick={() => register(state === 'server-only')}
         >
-          {loading ? 'Registering...' : state === 'server-only' || state === 'mismatch' ? 'Replace with device key' : 'Enable encryption'}
+          {loading ? 'Đang đăng ký...' : state === 'server-only' || state === 'mismatch' ? 'Thay bằng khoá thiết bị' : 'Bật mã hoá'}
         </button>
       )}
     </div>

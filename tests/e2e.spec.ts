@@ -25,6 +25,71 @@ import {
 import { consumeRateLimit } from '../src/lib/rateLimit';
 import { getDb } from '../src/lib/db';
 
+test('public pages hydrate without React mismatch warnings', async ({ page }) => {
+  test.setTimeout(90_000);
+  const hydrationErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /hydration|hydrated|server rendered html/i.test(message.text())) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
+  for (const path of ['/', '/upload', '/download', '/dashboard']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(750);
+  }
+
+  expect(hydrationErrors).toEqual([]);
+});
+
+test('download actions require an authenticated wallet session', async ({ page }) => {
+  await page.goto('/download?token=missing-token');
+  await expect(page.getByText('Kết nối ví trước khi mở tài liệu')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Kiểm tra quyền truy cập' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Mở tài liệu trong Viewer' })).toBeDisabled();
+});
+
+test('health endpoint reports database and storage readiness', async ({ request }) => {
+  const response = await request.get('/api/health');
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(body).toMatchObject({ ok: true, database: 'ready', storageProvider: 'local' });
+});
+
+test('visible buttons and links expose readable labels on public pages', async ({ page }) => {
+  for (const path of ['/', '/upload', '/download', '/dashboard']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const unlabeled = await page.locator('button:visible, a:visible').evaluateAll((nodes) =>
+      nodes
+        .map((node) => {
+          const element = node as HTMLElement;
+          const label = [
+            element.innerText,
+            element.getAttribute('aria-label'),
+            element.getAttribute('title'),
+          ].filter(Boolean).join(' ').trim();
+          return label ? null : element.outerHTML.slice(0, 120);
+        })
+        .filter(Boolean)
+    );
+    expect(unlabeled, `${path} has unlabeled interactive controls`).toEqual([]);
+  }
+});
+
+test('authenticated account menu opens without relying on MetaMask UI', async ({ page, context, baseURL }) => {
+  if (!baseURL) test.skip();
+  const session = await loginSession(baseURL);
+  await context.addCookies([{ name: 'session', value: session, domain: 'localhost', path: '/' }]);
+
+  await page.goto('/dashboard');
+  await page.getByLabel('Mở menu tài khoản').click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Sao chép địa chỉ' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Kiểm tra định danh mã hoá' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Kiểm tra định danh mã hoá' }).click();
+  await expect(page.getByText(/Định danh mã hoá|Đang tải định danh/)).toBeVisible();
+});
+
 async function loginSession(baseURL: string) {
   const req = await request.newContext({ baseURL });
   const start = await req.post('/api/auth/start');
@@ -158,6 +223,18 @@ test.describe('Encryption identity API', () => {
 });
 
 test.describe('Security hardening', () => {
+  test('rejects unauthenticated access to private workspace APIs', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const anonymous = await request.newContext({ baseURL });
+    for (const path of ['/api/files/list', '/api/vaults', '/api/approvals', '/api/tokens/list', '/api/audit']) {
+      const response = await anonymous.get(path);
+      expect(response.status(), `${path} must require a session`).toBe(401);
+    }
+    const createVault = await anonymous.post('/api/vaults', { data: { name: 'Unauthorized' } });
+    expect(createVault.status()).toBe(401);
+    await anonymous.dispose();
+  });
+
   test('enforces persistent rate limits', () => {
     const scope = `test:${Date.now()}:${Math.random()}`;
     const identifier = 'test-client';
@@ -261,7 +338,7 @@ test.describe('Recipient-restricted E2EE sharing', () => {
 
     const anonymous = await request.newContext({ baseURL });
     const anonymousValidation = await anonymous.post('/api/tokens/validate', { data: { token } });
-    expect(anonymousValidation.status()).toBe(403);
+    expect(anonymousValidation.status()).toBe(401);
 
     const recipientValidation = await recipient.req.post('/api/tokens/validate', { data: { token } });
     expect(recipientValidation.ok()).toBeTruthy();
@@ -451,6 +528,109 @@ test.describe('Immutable file versioning', () => {
   });
 });
 
+test.describe('Owner document destruction', () => {
+  test('revokes all access and removes ciphertext while preserving metadata auditability', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const outsider = await authenticatedRequest(baseURL);
+    const ciphertext = Buffer.from(`owner-destroy-${Date.now()}`);
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'destroy.bin',
+          mimeType: 'application/octet-stream',
+          buffer: ciphertext,
+        },
+      },
+    });
+    expect(upload.ok()).toBeTruthy();
+    const { cid } = await upload.json();
+
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Owner destroyed document',
+        cid,
+        fileName: 'destroy.txt',
+        mime: 'text/plain',
+        sizeBytes: ciphertext.length,
+        iv: Buffer.alloc(12, 20).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 21).toString('base64'),
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+    const { fileId, token } = await create.json();
+
+    const forbidden = await outsider.req.delete(`/api/files/${fileId}`, {
+      headers: { 'x-csrf': await csrfFor(outsider.req) },
+    });
+    expect(forbidden.status()).toBe(404);
+
+    const destroy = await owner.req.delete(`/api/files/${fileId}`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+    });
+    expect(destroy.ok()).toBeTruthy();
+    expect((await destroy.json()).ciphertextDeleted).toBeTruthy();
+
+    expect((await owner.req.post('/api/tokens/validate', { data: { token } })).status()).toBe(403);
+    expect((await owner.req.get(`/api/storage/get?token=${encodeURIComponent(token)}`)).status()).toBe(410);
+    const files = await owner.req.get('/api/files/list');
+    expect((await files.json()).files.some((file: { id: string }) => file.id === fileId)).toBeFalsy();
+    const reissue = await owner.req.post('/api/tokens/issue', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(reissue.status()).toBe(410);
+
+    await owner.req.dispose();
+    await outsider.req.dispose();
+  });
+
+  test('destroys a sent document from the dashboard action', async ({ page, context, baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const title = `Dashboard destroy ${Date.now()}`;
+    const ciphertext = Buffer.from(title);
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'dashboard-destroy.bin',
+          mimeType: 'application/octet-stream',
+          buffer: ciphertext,
+        },
+      },
+    });
+    const { cid } = await upload.json();
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title,
+        cid,
+        fileName: 'dashboard-destroy.txt',
+        mime: 'text/plain',
+        sizeBytes: ciphertext.length,
+        iv: Buffer.alloc(12, 22).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 23).toString('base64'),
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+
+    const storageState = await owner.req.storageState();
+    await context.addCookies(storageState.cookies);
+    await page.goto('/dashboard');
+    const row = page.locator('.inbox-row').filter({ hasText: title });
+    await expect(row).toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await row.getByRole('button', { name: 'Huỷ', exact: true }).click();
+    await expect(row).toBeHidden();
+    await expect(page.getByText('Đã huỷ tài liệu và thu hồi toàn bộ quyền truy cập.')).toBeVisible();
+
+    await owner.req.dispose();
+  });
+});
+
 test.describe('Self-destructing files', () => {
   test('deletes ciphertext after the configured number of downloads', async ({ baseURL }) => {
     if (!baseURL) test.skip();
@@ -617,6 +797,22 @@ test.describe('Threshold approval sessions', () => {
     })).ok()).toBeTruthy();
 
     const rawFileKey = webcrypto.getRandomValues(new Uint8Array(32)).buffer;
+    const fileIv = Buffer.alloc(12, 9);
+    const filePlaintext = Buffer.from('Threshold demo paper');
+    const fileKey = await webcrypto.subtle.importKey('raw', rawFileKey, 'AES-GCM', false, ['encrypt']);
+    const fileCiphertext = Buffer.from(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv: fileIv }, fileKey, filePlaintext));
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'threshold.bin',
+          mimeType: 'application/octet-stream',
+          buffer: fileCiphertext,
+        },
+      },
+    });
+    expect(upload.ok()).toBeTruthy();
+    const { cid } = await upload.json();
     const shares = splitSecret(rawFileKey, 3, 2);
     const encryptedShares = await encryptThresholdShares(shares, [
       { address: owner.wallet.address, publicKey: ownerIdentity.publicKey },
@@ -627,11 +823,11 @@ test.describe('Threshold approval sessions', () => {
       headers: { 'x-csrf': await csrfFor(owner.req) },
       data: {
         title: 'Threshold protected file',
-        cid: 'threshold-session-cid',
+        cid,
         fileName: 'threshold.txt',
         mime: 'text/plain',
-        sizeBytes: 20,
-        iv: Buffer.alloc(12, 9).toString('base64'),
+        sizeBytes: filePlaintext.length,
+        iv: fileIv.toString('base64'),
         vaultId,
         thresholdShares: encryptedShares.map((share) => ({
           memberAddress: share.recipientAddress,
@@ -672,6 +868,7 @@ test.describe('Threshold approval sessions', () => {
     expect(createRequest.ok()).toBeTruthy();
     const { requestId } = await createRequest.json();
 
+    const approvalResults: Array<{ approvalCount: number; threshold: number; token?: string }> = [];
     for (const approver of [
       { session: owner, identity: ownerIdentity },
       { session: editor, identity: editorIdentity },
@@ -692,12 +889,19 @@ test.describe('Threshold approval sessions', () => {
         data: { envelope },
       });
       expect(approval.ok()).toBeTruthy();
+      approvalResults.push(await approval.json());
     }
+    expect(approvalResults[0].approvalCount).toBe(1);
+    expect(approvalResults[0].token).toBeUndefined();
+    expect(approvalResults[1].approvalCount).toBe(2);
+    expect(approvalResults[1].token).toBeTruthy();
+    const approvalToken = approvalResults[1].token!;
 
     const requesterDetail = await requester.req.get(`/api/approvals/${requestId}`);
     const requesterBody = await requesterDetail.json();
     expect(requesterBody.request.status).toBe('approved');
     expect(requesterBody.request.approvalCount).toBe(2);
+    expect(requesterBody.request.approvedToken).toBe(approvalToken);
     const approvedShares = await Promise.all(
       requesterBody.request.contributions.map(async (contribution: { envelope: RecipientSecretEnvelope }) => {
         const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, requesterIdentity.privateKey);
@@ -705,6 +909,17 @@ test.describe('Threshold approval sessions', () => {
       })
     );
     expect(Buffer.from(combineSecret(approvedShares))).toEqual(Buffer.from(rawFileKey));
+    const approvalTokenValidation = await requester.req.post('/api/tokens/validate', { data: { token: approvalToken } });
+    const approvalTokenBody = await approvalTokenValidation.json();
+    expect(approvalTokenBody.ok).toBeTruthy();
+    expect(approvalTokenBody.approvalGranted).toBeTruthy();
+    expect(approvalTokenBody.approvalRequestId).toBe(requestId);
+    expect(approvalTokenBody.thresholdProtected).toBeFalsy();
+    const ownerApprovalTokenValidation = await owner.req.post('/api/tokens/validate', { data: { token: approvalToken } });
+    expect(ownerApprovalTokenValidation.status()).toBe(403);
+    const tokenCiphertext = await requester.req.get(`/api/storage/get?token=${encodeURIComponent(approvalToken)}`);
+    expect(tokenCiphertext.ok()).toBeTruthy();
+    expect(Buffer.from(await tokenCiphertext.body())).toEqual(fileCiphertext);
 
     const secondRequest = await requester.req.post('/api/approvals', {
       headers: { 'x-csrf': await csrfFor(requester.req) },
@@ -737,20 +952,47 @@ test.describe('Upload/Download - passphrase flow', () => {
       mimeType: 'text/plain',
       buffer: Buffer.from('Hello secure world'),
     });
-    await page.getByPlaceholder('My encrypted document').fill('Playwright Test');
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Playwright Test');
     await page.locator('input[type="password"]').fill('pass1234-Strong');
-    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
-    await page.getByText('Share token').waitFor();
-    await page.getByRole('link', { name: 'Open download' }).click();
-    await page.getByRole('button', { name: 'Validate' }).click();
-    await page.getByText('Ready').waitFor();
+    await page.getByRole('button', { name: /Cho phép tải gói mã hóa/ }).click();
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
+    await page.getByText('Mã truy cập').waitFor();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
+    await page.getByText('Sẵn sàng').waitFor();
     await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
+    await expect(page.locator('.protected-reader-stage')).toContainText('Hello secure world');
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await page.getByRole('button', { name: 'Tải gói mã hóa' }).click();
     const download = await downloadPromise;
     const path = await download.path();
     expect(path).toBeTruthy();
-    expect(download.suggestedFilename()).toContain('hello.txt');
+    expect(download.suggestedFilename()).toContain('hello.txt.vaultline');
+  });
+
+  test('opens a protected text file inside the viewer', async ({ page, context, baseURL }) => {
+    if (!baseURL) test.skip();
+    const session = await loginSession(baseURL);
+    await context.addCookies([{ name: 'session', value: session, domain: 'localhost', path: '/' }]);
+
+    await page.goto('/upload');
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'viewer-note.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Protected viewer content'),
+    });
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Viewer Test');
+    await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
+    await page.getByText('Mã truy cập').waitFor();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
+    await page.getByText('Sẵn sàng').waitFor();
+    await page.locator('input[type="password"]').fill('pass1234-Strong');
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
+    await expect(page.locator('.protected-reader')).toBeVisible();
+    await expect(page.locator('.protected-reader-stage')).toContainText('Protected viewer content');
   });
 });
 
@@ -767,18 +1009,14 @@ test.describe('Upload/Download - demo raw key flow', () => {
       mimeType: 'text/plain',
       buffer: Buffer.from('Raw key demo'),
     });
-    await page.getByPlaceholder('My encrypted document').fill('Demo File');
-    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
-    await page.getByText('Share token').waitFor();
-    await page.getByRole('link', { name: 'Open download' }).click();
-    await page.getByRole('button', { name: 'Validate' }).click();
-    await page.getByText('Ready').waitFor();
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
-    const download = await downloadPromise;
-    const path = await download.path();
-    expect(path).toBeTruthy();
-    expect(download.suggestedFilename()).toContain('demo.txt');
+    await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Demo File');
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
+    await page.getByText('Mã truy cập').waitFor();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
+    await page.getByText('Sẵn sàng').waitFor();
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
+    await expect(page.locator('.protected-reader-stage')).toContainText('Raw key demo');
   });
 });
 

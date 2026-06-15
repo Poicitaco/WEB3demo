@@ -45,6 +45,11 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ ok: false, error: 'Request expired' }, { status: 403 });
   }
   if (normalized === request.requester_address) {
+    const approvedToken = db.prepare(
+      `SELECT token, expires_at FROM tokens
+       WHERE approval_request_id = ? AND issued_to_address = ? AND revoked = 0
+       ORDER BY created_at DESC LIMIT 1`
+    ).get(id, normalized) as { token: string; expires_at: string | null } | undefined;
     const ownShare = db.prepare(
       `SELECT s.share_index, s.algorithm, s.ephemeral_public_key_jwk, s.salt, s.iv, s.wrapped_share,
               i.algorithm AS requester_algorithm, i.public_key_jwk AS requester_public_key_jwk
@@ -79,6 +84,8 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
           shareIndex: row.share_index,
           envelope: envelopeFromRow(row),
         })),
+        approvedToken: approvedToken?.token,
+        approvedTokenExpiresAt: approvedToken?.expires_at,
       },
     });
   }
