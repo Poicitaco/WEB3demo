@@ -47,5 +47,6 @@ These items are not required for the classroom prototype:
 - [x] Document inbox, operational metrics, search/filter, and audit activity feed
 - [x] Software-engineering architecture and test-plan documentation
 - [x] CI verification for lint, production build, and E2E
-- [ ] Screenshots and report updates
-- [ ] Final presentation rehearsal
+- [x] Report update notes and rehearsal script
+- [ ] Screenshots captured for final report
+- [ ] Final live rehearsal with three real wallets
