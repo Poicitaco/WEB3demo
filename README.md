@@ -29,7 +29,7 @@ A secure, privacy-focused file sharing application that encrypts files on your b
 
 ### Storage
 
-- **Ciphertext**: Local filesystem (demo) - can swap with IPFS/Filecoin
+- **Ciphertext**: Local filesystem for demo, optional Cloudflare R2 for online deployments
 - **Metadata**: SQLite database
 
 ## Prerequisites
@@ -183,14 +183,24 @@ strategy in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
 Create `.env.local`:
 
 ```bash
-# Allow raw keys (demo mode) - disable in production
+# Required in production.
+JWT_SECRET=replace-with-a-long-random-secret
+REQUIRE_CSRF=true
+
+# Local demo storage.
+STORAGE_PROVIDER=local
+
+# Cloudflare R2 storage for online deployments.
+# Set STORAGE_PROVIDER=r2 and fill these values from the R2 dashboard.
+CLOUDFLARE_R2_ACCOUNT_ID=
+CLOUDFLARE_R2_BUCKET=
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_KEY_PREFIX=ciphertexts
+
+# Raw AES keys are only permitted for local demo flows.
+ALLOW_RAW_KEYS=false
 NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
-
-# Database path (SQLite)
-DB_PATH=data/app.sqlite
-
-# Storage path for ciphertext
-STORAGE_PATH=storage
 ```
 
 ## Running Tests
