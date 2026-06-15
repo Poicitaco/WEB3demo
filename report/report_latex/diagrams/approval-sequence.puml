@@ -1,0 +1,49 @@
+@startuml
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #5F4BDB
+  LifeLineBorderColor #2E2A27
+  ParticipantBorderColor #2E2A27
+  ParticipantBackgroundColor #FBF8F3
+}
+
+actor "A\nChủ sở hữu" as A
+actor "B\nNgười duyệt" as B
+actor "C\nNgười nhận" as C
+participant "Frontend" as FE
+participant "Next.js API" as API
+database "SQLite" as DB
+participant "Cloudflare R2" as R2
+
+A -> FE : Upload tài liệu
+FE -> FE : Mã hóa file phía client
+FE -> API : POST /api/storage/upload(ciphertext)
+API -> R2 : PutObject(ciphertext)
+R2 --> API : cid
+FE -> API : POST /api/files(metadata, shares)
+API -> DB : Lưu files, threshold_file_shares
+
+C -> FE : Tạo yêu cầu mở tài liệu
+FE -> API : POST /api/approvals
+API -> DB : Lưu approval_requests(status=pending)
+
+A -> FE : Duyệt yêu cầu
+FE -> API : POST /api/approvals/{id}/approve
+API -> DB : Lưu approval_contributions(A)
+API --> FE : Chưa đủ ngưỡng
+
+B -> FE : Duyệt yêu cầu
+FE -> API : POST /api/approvals/{id}/approve
+API -> DB : Lưu approval_contributions(B)
+API -> DB : Cập nhật approved + tạo approval token
+API --> FE : Trả token cho C
+
+C -> FE : Nhập approval token
+FE -> API : POST /api/tokens/validate
+API -> DB : Kiểm tra token, requester, expiry
+FE -> API : GET /api/storage/get
+API -> R2 : GetObject(ciphertext)
+R2 --> API : ciphertext
+API --> FE : ciphertext
+FE -> FE : Kết hợp share và giải mã trong viewer
+@enduml

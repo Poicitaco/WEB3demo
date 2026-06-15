@@ -1,0 +1,54 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F7F4EF
+  BorderColor #2E2A27
+  ArrowColor #5F4BDB
+}
+
+actor "A\nChủ sở hữu" as Owner
+actor "B\nNgười phê duyệt" as Reviewer
+actor "C\nNgười nhận" as Recipient
+actor "Cloudflare R2" as R2
+
+rectangle "WEB3demo" {
+  usecase "Đăng nhập bằng ví" as UCAuth
+  usecase "Đăng ký định danh mã hóa" as UCIdentity
+  usecase "Upload và mã hóa tài liệu" as UCUpload
+  usecase "Quản lý kho nhóm" as UCVault
+  usecase "Thiết lập phê duyệt ngưỡng" as UCThreshold
+  usecase "Tạo yêu cầu truy cập" as UCRequest
+  usecase "Phê duyệt yêu cầu" as UCApprove
+  usecase "Cấp approval token" as UCToken
+  usecase "Mở tài liệu trong viewer" as UCView
+  usecase "Thu hồi token" as UCRevoke
+  usecase "Hủy tài liệu" as UCDestroy
+  usecase "Xem audit trail" as UCAudit
+  usecase "Lưu ciphertext" as UCStore
+}
+
+Owner --> UCAuth
+Reviewer --> UCAuth
+Recipient --> UCAuth
+Owner --> UCIdentity
+Reviewer --> UCIdentity
+Recipient --> UCIdentity
+Owner --> UCUpload
+Owner --> UCVault
+Owner --> UCThreshold
+Recipient --> UCRequest
+Owner --> UCApprove
+Reviewer --> UCApprove
+UCApprove --> UCToken : đủ ngưỡng
+Recipient --> UCView
+Owner --> UCRevoke
+Owner --> UCDestroy
+Owner --> UCAudit
+Reviewer --> UCAudit
+Recipient --> UCAudit
+UCUpload --> UCStore
+UCStore --> R2
+@enduml

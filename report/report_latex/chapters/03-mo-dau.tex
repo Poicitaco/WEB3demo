@@ -1,0 +1,72 @@
+\chapter*{MỞ ĐẦU}
+\addcontentsline{toc}{chapter}{MỞ ĐẦU}
+
+\section*{1. Lý do chọn đề tài}
+\addcontentsline{toc}{section}{1. Lý do chọn đề tài}
+
+Trong môi trường học thuật và nghiên cứu, việc chia sẻ tài liệu như bài báo khoa học, luận văn, báo cáo nội bộ hoặc dữ liệu thí nghiệm diễn ra thường xuyên. Tuy nhiên, các hình thức chia sẻ phổ biến như gửi file qua email, tải lên dịch vụ lưu trữ đám mây hoặc gửi link công khai thường khiến chủ sở hữu mất dần quyền kiểm soát sau khi tài liệu đã rời khỏi thiết bị cá nhân. Người nhận có thể tải bản gốc, chuyển tiếp cho người khác hoặc giữ file sau khi quyền truy cập đáng lẽ đã hết hạn.
+
+Vấn đề đặt ra không chỉ là "làm sao gửi được file", mà là "làm sao kiểm soát vòng đời quyền truy cập của tài liệu sau khi gửi". Đây là một bài toán phù hợp với môn Kỹ thuật phần mềm vì cần kết hợp nhiều khía cạnh: phân tích yêu cầu, thiết kế tác nhân, thiết kế cơ sở dữ liệu, thiết kế giao diện, luồng nghiệp vụ, kiểm thử, triển khai và đánh giá rủi ro.
+
+Từ nhu cầu đó, nhóm lựa chọn đề tài \textbf{\projectname{} -- hệ thống chia sẻ tài liệu bảo mật dựa trên ví blockchain và phê duyệt nhiều người}. Hệ thống không hướng tới việc thay thế hoàn toàn các nền tảng lưu trữ lớn, mà tập trung chứng minh một mô hình phần mềm trong đó tài liệu được mã hóa trước khi upload, quyền truy cập được cấp bằng token, và một số tài liệu nhạy cảm cần nhiều ví cùng phê duyệt trước khi người nhận có thể mở.
+
+\section*{2. Mục tiêu đề tài}
+\addcontentsline{toc}{section}{2. Mục tiêu đề tài}
+
+Đề tài hướng tới các mục tiêu chính:
+
+\begin{itemize}
+  \item Xây dựng một prototype cho phép người dùng đăng nhập bằng ví MetaMask.
+  \item Mã hóa tài liệu phía trình duyệt trước khi upload lên storage.
+  \item Thiết kế cơ chế cấp, kiểm tra, thu hồi token truy cập.
+  \item Hỗ trợ protected viewer để người nhận xem tài liệu theo quyền được cấp.
+  \item Xây dựng cơ chế phê duyệt ngưỡng: A và B cùng duyệt thì C mới nhận quyền mở.
+  \item Cung cấp dashboard quản lý tài liệu, token, kho nhóm, yêu cầu phê duyệt và audit trail.
+  \item Triển khai được theo hai chế độ: local để demo ổn định và Railway/R2 để demo online.
+  \item Kiểm thử các luồng chính bằng lint, build và Playwright E2E.
+\end{itemize}
+
+\section*{3. Phạm vi đề tài}
+\addcontentsline{toc}{section}{3. Phạm vi đề tài}
+
+Trong phạm vi môn học, hệ thống tập trung vào các chức năng cốt lõi của chia sẻ tài liệu bảo mật:
+
+\begin{itemize}
+  \item Định danh người dùng bằng ví, không xây dựng hệ thống mật khẩu truyền thống.
+  \item Mã hóa file phía client và lưu ciphertext trên local storage hoặc Cloudflare R2.
+  \item Quản lý metadata bằng SQLite.
+  \item Phân quyền theo token, vai trò trong kho nhóm và yêu cầu phê duyệt.
+  \item Triển khai prototype bằng Next.js, Docker và Railway.
+\end{itemize}
+
+Đề tài chưa hướng tới các yêu cầu sản xuất quy mô lớn như phân tán database, giám sát production đầy đủ, chống chụp màn hình tuyệt đối hoặc chứng minh zero-knowledge hoàn chỉnh. Những nội dung này được xem là hướng phát triển.
+
+\section*{4. Phương pháp thực hiện}
+\addcontentsline{toc}{section}{4. Phương pháp thực hiện}
+
+Nhóm thực hiện đề tài theo quy trình gần với mô hình lặp:
+
+\begin{enumerate}
+  \item Khảo sát bài toán chia sẻ tài liệu nhạy cảm và xác định các rủi ro chính.
+  \item Phân tích tác nhân, use case, yêu cầu chức năng và phi chức năng.
+  \item Thiết kế kiến trúc tổng quan, cơ sở dữ liệu, API và luồng nghiệp vụ.
+  \item Cài đặt từng module: xác thực ví, upload, mã hóa, token, approval, viewer, dashboard.
+  \item Kiểm thử bằng lint, production build, API test và E2E test.
+  \item Triển khai local/Railway, cấu hình Cloudflare R2 và chuẩn bị kịch bản demo.
+\end{enumerate}
+
+\section*{5. Bố cục báo cáo}
+\addcontentsline{toc}{section}{5. Bố cục báo cáo}
+
+Báo cáo gồm sáu chương:
+
+\begin{itemize}
+  \item Chương 1 trình bày tổng quan đề tài và cơ sở lý thuyết.
+  \item Chương 2 phân tích yêu cầu phần mềm.
+  \item Chương 3 trình bày phân tích và thiết kế hệ thống.
+  \item Chương 4 mô tả quá trình cài đặt hệ thống.
+  \item Chương 5 trình bày kiểm thử, triển khai và đánh giá.
+  \item Chương 6 tổng kết kết quả và hướng phát triển.
+\end{itemize}
+
+\clearpage

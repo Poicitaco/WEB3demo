@@ -1,0 +1,53 @@
+\chapter*{CHƯƠNG 6: KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN}
+\addcontentsline{toc}{chapter}{CHƯƠNG 6: KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN}
+
+\section*{6.1. Kết luận}
+\addcontentsline{toc}{section}{6.1. Kết luận}
+
+Báo cáo đã trình bày quá trình xây dựng \projectname{} theo góc nhìn Kỹ thuật phần mềm. Từ bài toán chia sẻ tài liệu nhạy cảm, nhóm đã phân tích yêu cầu, xác định tác nhân, thiết kế use case, thiết kế kiến trúc, cơ sở dữ liệu, API, giao diện, sau đó cài đặt và kiểm thử prototype.
+
+Kết quả quan trọng nhất của đề tài là chứng minh được một luồng bảo vệ tài liệu có tính hệ thống: tài liệu được mã hóa trước khi upload, quyền truy cập được cấp bằng token, tài liệu nhạy cảm có thể yêu cầu nhiều người phê duyệt, và chủ sở hữu có thể thu hồi token hoặc hủy tài liệu. Hệ thống cũng có dashboard, viewer, audit trail và cấu hình triển khai lên Railway/R2.
+
+Đối với môn Kỹ thuật phần mềm, đề tài thể hiện đầy đủ các khía cạnh của một quy trình phát triển phần mềm: yêu cầu, thiết kế, cài đặt, kiểm thử, triển khai và đánh giá. Đây không chỉ là một chức năng mã hóa/giải mã, mà là một prototype có nhiều module phối hợp với nhau.
+
+\section*{6.2. Bài học rút ra}
+\addcontentsline{toc}{section}{6.2. Bài học rút ra}
+
+Trong quá trình thực hiện, nhóm rút ra một số bài học:
+
+\begin{itemize}
+  \item Cần phân biệt rõ giữa bảo mật bằng mã hóa và kiểm soát hành vi sau khi người dùng đã xem tài liệu.
+  \item Thiết kế module rõ ràng giúp hệ thống dễ mở rộng từ local storage sang R2.
+  \item Kiểm thử E2E rất cần thiết vì nhiều lỗi chỉ xuất hiện khi các module UI, API, database và session chạy cùng nhau.
+  \item Deploy online không chỉ là đẩy code, mà còn phụ thuộc biến môi trường, secret, volume, healthcheck và quyền ghi runtime.
+  \item Với hệ thống liên quan quyền truy cập, audit log và thông báo lỗi rõ ràng quan trọng không kém chức năng chính.
+\end{itemize}
+
+\section*{6.3. Hướng phát triển}
+\addcontentsline{toc}{section}{6.3. Hướng phát triển}
+
+Các hướng phát triển ngắn hạn:
+
+\begin{itemize}
+  \item Thêm watermark cá nhân hóa trong protected viewer để giảm rủi ro chia sẻ trái phép.
+  \item Hỗ trợ viewer tốt hơn cho PDF, notebook, video và file khoa học.
+  \item Thêm notification khi có yêu cầu phê duyệt mới hoặc file sắp hết hạn.
+  \item Cải thiện dashboard audit để chủ sở hữu dễ hiểu hành vi truy cập.
+  \item Chuyển SQLite sang PostgreSQL nếu cần nhiều instance hoặc nhiều người dùng.
+\end{itemize}
+
+Các hướng nghiên cứu nâng cao:
+
+\begin{itemize}
+  \item \textbf{Merkle audit receipt}: tạo biên nhận audit bất biến sau mỗi phiên chia sẻ.
+  \item \textbf{Zero-knowledge permission proof}: chứng minh người dùng có quyền mà server không cần biết toàn bộ thông tin định danh.
+  \item \textbf{Time-locked encryption}: khóa chỉ có thể giải mã trong khoảng thời gian nhất định.
+  \item \textbf{Risk scoring}: đánh giá rủi ro theo thiết bị, tần suất mở file và hành vi bất thường.
+\end{itemize}
+
+\section*{6.4. Luận điểm bảo vệ}
+\addcontentsline{toc}{section}{6.4. Luận điểm bảo vệ}
+
+Khi bảo vệ, nhóm cần nhấn mạnh rằng hệ thống không tuyên bố làm cho việc copy trở nên bất khả thi. Nếu người dùng đã được xem nội dung, vẫn tồn tại rủi ro chụp màn hình hoặc copy thủ công. Giá trị của hệ thống nằm ở việc làm cho quyền truy cập trở nên có chủ đích, có thể thu hồi, có thể kiểm chứng và khó bị lạm dụng hơn so với gửi file gốc trực tiếp.
+
+\clearpage

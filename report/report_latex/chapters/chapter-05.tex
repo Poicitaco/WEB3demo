@@ -1,0 +1,135 @@
+\chapter*{CHƯƠNG 5: KIỂM THỬ, TRIỂN KHAI VÀ ĐÁNH GIÁ}
+\addcontentsline{toc}{chapter}{CHƯƠNG 5: KIỂM THỬ, TRIỂN KHAI VÀ ĐÁNH GIÁ}
+
+Chương này trình bày chiến lược kiểm thử, kết quả kiểm tra, phương án triển khai và đánh giá hệ thống sau khi cài đặt.
+
+\section*{5.1. Chiến lược kiểm thử}
+\addcontentsline{toc}{section}{5.1. Chiến lược kiểm thử}
+
+Hệ thống được kiểm thử theo nhiều tầng:
+
+\begin{table}[H]
+\centering
+\caption{Chiến lược kiểm thử}
+\begin{tabularx}{\textwidth}{|p{3.2cm}|p{4.5cm}|X|}
+\hline
+\textbf{Tầng kiểm thử} & \textbf{Công cụ} & \textbf{Mục tiêu} \\ \hline
+Static analysis & ESLint & Phát hiện lỗi cú pháp, lỗi React/TypeScript và quy tắc code. \\ \hline
+Production build & Next.js build & Kiểm tra khả năng compile, type check và build production. \\ \hline
+API integration & Playwright request & Kiểm tra auth, token, approval, vault, audit và phân quyền. \\ \hline
+End-to-end & Playwright Chromium & Kiểm tra các luồng người dùng trên giao diện. \\ \hline
+Runtime healthcheck & \texttt{/api/health} & Kiểm tra database và storage provider khi chạy thật. \\ \hline
+\end{tabularx}
+\end{table}
+
+\section*{5.2. Ma trận kiểm thử chức năng}
+\addcontentsline{toc}{section}{5.2. Ma trận kiểm thử chức năng}
+
+\begin{longtable}{|p{2cm}|p{5.4cm}|p{5.8cm}|}
+\caption{Một số test case chính} \\
+\hline
+\textbf{Mã} & \textbf{Kịch bản} & \textbf{Kỳ vọng} \\ \hline
+TC-01 & Truy cập các trang public & Không có lỗi hydration React. \\ \hline
+TC-02 & Mở download khi chưa đăng nhập & Nút kiểm tra và mở tài liệu bị vô hiệu hóa. \\ \hline
+TC-03 & Gọi healthcheck & API trả về database ready và storage provider. \\ \hline
+TC-04 & Đăng ký encryption identity & Public key ký bởi đúng ví được lưu; chữ ký ví khác bị từ chối. \\ \hline
+TC-05 & Tạo token và validate token & Token hợp lệ được chấp nhận; token thu hồi/hết hạn bị từ chối. \\ \hline
+TC-06 & Phân quyền vault & Owner/editor/viewer bị giới hạn đúng vai trò. \\ \hline
+TC-07 & Phê duyệt ngưỡng & Một approval chưa đủ cấp token; đủ ngưỡng mới cấp token cho requester. \\ \hline
+TC-08 & Hủy tài liệu & Chỉ owner được hủy; token liên quan bị thu hồi. \\ \hline
+TC-09 & Audit trail & Hành động nhạy cảm sinh audit event và event không thể sửa/xóa. \\ \hline
+TC-10 & Nhãn UI & Button/link hiển thị có label để dễ dùng và dễ kiểm thử. \\ \hline
+\end{longtable}
+
+\section*{5.3. Kết quả kiểm thử hiện tại}
+\addcontentsline{toc}{section}{5.3. Kết quả kiểm thử hiện tại}
+
+Các lệnh kiểm tra thường dùng:
+
+\begin{lstlisting}[language=bash]
+npm run lint
+npm run build
+npm run test:e2e
+\end{lstlisting}
+
+Trong quá trình hoàn thiện, nhóm đã chạy lint và build nhiều lần. Production build thành công cho các route chính như trang chủ, upload, download, dashboard và các API route. E2E test bao phủ các luồng như hydration, đăng nhập giả lập bằng ví, kiểm tra token, approval, vault, audit, account menu và quyền truy cập.
+
+\section*{5.4. Triển khai local}
+\addcontentsline{toc}{section}{5.4. Triển khai local}
+
+Local là phương án demo dự phòng quan trọng. Khi chạy local, app server chạy trên máy cá nhân nhưng vẫn có thể dùng Cloudflare R2 để lưu ciphertext. Điều này giúp demo được đầy đủ logic cloud storage ngay cả khi Railway gặp sự cố.
+
+Cấu hình local cơ bản:
+
+\begin{lstlisting}
+JWT_SECRET=replace-with-a-long-random-secret
+REQUIRE_CSRF=true
+DB_PATH=data/app.sqlite
+STORAGE_PROVIDER=r2
+CLOUDFLARE_R2_ACCOUNT_ID=<account_id>
+CLOUDFLARE_R2_BUCKET=<bucket_name>
+CLOUDFLARE_R2_ACCESS_KEY_ID=<rotated_access_key_id>
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=<rotated_secret_access_key>
+CLOUDFLARE_R2_KEY_PREFIX=ciphertexts
+\end{lstlisting}
+
+Chạy production local:
+
+\begin{lstlisting}[language=bash]
+npm run build
+npm run start
+\end{lstlisting}
+
+\section*{5.5. Triển khai Railway và Cloudflare R2}
+\addcontentsline{toc}{section}{5.5. Triển khai Railway và Cloudflare R2}
+
+Triển khai online gồm hai phần: Railway chạy ứng dụng và Cloudflare R2 lưu ciphertext. SQLite được lưu trong Railway volume mount tại \texttt{/app/data}. Các biến môi trường quan trọng gồm \texttt{JWT\_SECRET}, \texttt{DB\_PATH}, \texttt{STORAGE\_PROVIDER} và các R2 access key.
+
+Healthcheck sau khi deploy:
+
+\begin{lstlisting}
+https://<domain>.up.railway.app/api/health
+\end{lstlisting}
+
+Kết quả mong đợi:
+
+\begin{lstlisting}
+{
+  "ok": true,
+  "database": "ready",
+  "storageProvider": "r2"
+}
+\end{lstlisting}
+
+\section*{5.6. Đánh giá hệ thống}
+\addcontentsline{toc}{section}{5.6. Đánh giá hệ thống}
+
+\subsection*{5.6.1. Kết quả đạt được}
+\addcontentsline{toc}{subsection}{5.6.1. Kết quả đạt được}
+
+Hệ thống đã đạt các mục tiêu chính:
+
+\begin{itemize}
+  \item Có prototype web hoạt động với giao diện dashboard, upload và viewer.
+  \item Có đăng nhập bằng MetaMask.
+  \item Có mã hóa phía client và lưu ciphertext.
+  \item Có token truy cập, thu hồi token và hủy tài liệu.
+  \item Có luồng phê duyệt A+B cho C.
+  \item Có audit trail và kiểm thử tự động.
+  \item Có cấu hình local/R2/Railway phục vụ demo.
+\end{itemize}
+
+\subsection*{5.6.2. Hạn chế}
+\addcontentsline{toc}{subsection}{5.6.2. Hạn chế}
+
+Một số hạn chế cần nêu rõ:
+
+\begin{itemize}
+  \item Protected viewer không thể ngăn người dùng chụp ảnh bằng thiết bị khác.
+  \item SQLite phù hợp prototype một instance, chưa phù hợp scale nhiều instance.
+  \item Chưa có hệ thống notification để báo người duyệt khi có yêu cầu mới.
+  \item Chưa có watermark cá nhân hóa theo người nhận.
+  \item Chưa có audit receipt dạng Merkle tree hoặc bằng chứng zero-knowledge.
+\end{itemize}
+
+\clearpage

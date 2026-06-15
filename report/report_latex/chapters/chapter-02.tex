@@ -1,0 +1,90 @@
+\chapter*{CHƯƠNG 2: KHẢO SÁT VÀ PHÂN TÍCH YÊU CẦU}
+\addcontentsline{toc}{chapter}{CHƯƠNG 2: KHẢO SÁT VÀ PHÂN TÍCH YÊU CẦU}
+
+Chương này phân tích yêu cầu hệ thống theo góc nhìn Kỹ thuật phần mềm. Nội dung gồm tác nhân, use case, yêu cầu chức năng, yêu cầu phi chức năng, ràng buộc và giả định.
+
+\section*{2.1. Tác nhân hệ thống}
+\addcontentsline{toc}{section}{2.1. Tác nhân hệ thống}
+
+\begin{table}[H]
+\centering
+\caption{Các tác nhân chính của hệ thống}
+\begin{tabularx}{\textwidth}{|p{3.2cm}|X|}
+\hline
+\textbf{Tác nhân} & \textbf{Mô tả} \\ \hline
+Chủ sở hữu tài liệu & Người upload, mã hóa, chia sẻ, thu hồi token và hủy tài liệu. Trong demo là ví A. \\ \hline
+Người phê duyệt & Thành viên có quyền tham gia duyệt yêu cầu mở tài liệu nhạy cảm. Trong demo là ví B. \\ \hline
+Người nhận & Người được cấp token hoặc tạo yêu cầu truy cập để mở tài liệu. Trong demo là ví C. \\ \hline
+Thành viên kho & Người thuộc một kho nhóm với vai trò owner, editor hoặc viewer. \\ \hline
+Cloudflare R2 & Dịch vụ lưu trữ object, chỉ nhận ciphertext. \\ \hline
+\end{tabularx}
+\end{table}
+
+\section*{2.2. Use case tổng quát}
+\addcontentsline{toc}{section}{2.2. Use case tổng quát}
+
+Hình \ref{fig:usecase} thể hiện use case tổng quát của hệ thống. Sơ đồ được viết bằng PlantUML để dễ bảo trì và tái sinh khi thay đổi yêu cầu.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{usecase.png}
+\caption{Sơ đồ use case tổng quát của WEB3demo}
+\label{fig:usecase}
+\end{figure}
+
+\section*{2.3. Yêu cầu chức năng}
+\addcontentsline{toc}{section}{2.3. Yêu cầu chức năng}
+
+\begin{longtable}{|p{2cm}|p{5cm}|p{7cm}|}
+\caption{Danh sách yêu cầu chức năng} \\
+\hline
+\textbf{Mã} & \textbf{Yêu cầu} & \textbf{Mô tả} \\ \hline
+FR-01 & Đăng nhập bằng ví & Người dùng ký nonce bằng MetaMask để tạo session. \\ \hline
+FR-02 & Đăng ký định danh mã hóa & Người dùng đăng ký public key để nhận key envelope hoặc share mã hóa. \\ \hline
+FR-03 & Upload tài liệu & Chủ sở hữu chọn file, hệ thống mã hóa phía client và upload ciphertext. \\ \hline
+FR-04 & Tạo metadata file & Backend lưu cid, tên file, mime, owner, iv, access mode và thông tin khóa. \\ \hline
+FR-05 & Tạo token chia sẻ & Chủ sở hữu tạo token có thời hạn cho tài liệu. \\ \hline
+FR-06 & Kiểm tra token & Người nhận nhập token, hệ thống kiểm tra hết hạn, thu hồi và quyền ví. \\ \hline
+FR-07 & Thu hồi token & Chủ sở hữu có thể vô hiệu hóa token đã cấp. \\ \hline
+FR-08 & Hủy tài liệu & Chủ sở hữu hủy tài liệu, thu hồi token và dọn ciphertext nếu phù hợp. \\ \hline
+FR-09 & Quản lý kho nhóm & Người dùng tạo kho, thêm thành viên và gán vai trò. \\ \hline
+FR-10 & Thiết lập phê duyệt ngưỡng & Kho nhóm có thể bật chính sách K-of-N. \\ \hline
+FR-11 & Tạo yêu cầu truy cập & Người nhận tạo yêu cầu mở tài liệu cần phê duyệt. \\ \hline
+FR-12 & Phê duyệt yêu cầu & Thành viên hợp lệ gửi contribution cho yêu cầu truy cập. \\ \hline
+FR-13 & Cấp approval token & Khi đủ ngưỡng, hệ thống tạo token cho người yêu cầu. \\ \hline
+FR-14 & Protected viewer & Người nhận mở tài liệu trong viewer thay vì tải bản gốc theo mặc định. \\ \hline
+FR-15 & Audit trail & Hệ thống ghi lại các hành động quan trọng. \\ \hline
+\end{longtable}
+
+\section*{2.4. Yêu cầu phi chức năng}
+\addcontentsline{toc}{section}{2.4. Yêu cầu phi chức năng}
+
+\begin{table}[H]
+\centering
+\caption{Yêu cầu phi chức năng}
+\begin{tabularx}{\textwidth}{|p{3.5cm}|X|}
+\hline
+\textbf{Nhóm yêu cầu} & \textbf{Cách đáp ứng trong hệ thống} \\ \hline
+Bảo mật & Mã hóa phía client, JWT cookie, CSRF protection, token thu hồi, kiểm tra vai trò và audit log. \\ \hline
+Riêng tư & Server không chủ động lưu plaintext; storage chỉ lưu ciphertext. \\ \hline
+Khả dụng & Có thể chạy local nếu deploy online gặp sự cố; có healthcheck kiểm tra runtime. \\ \hline
+Bảo trì & Tách module theo API, component, storage helper, db helper, audit helper và access-control helper. \\ \hline
+Mở rộng & Storage có abstraction để dùng local hoặc Cloudflare R2; kiến trúc có thể phát triển sang IPFS/Filecoin. \\ \hline
+Kiểm thử & Có ESLint, Next build và Playwright E2E cho các luồng quan trọng. \\ \hline
+\end{tabularx}
+\end{table}
+
+\section*{2.5. Ràng buộc và giả định}
+\addcontentsline{toc}{section}{2.5. Ràng buộc và giả định}
+
+Các ràng buộc chính:
+
+\begin{itemize}
+  \item Người dùng cần trình duyệt hỗ trợ Web Crypto API và MetaMask.
+  \item SQLite phù hợp prototype và demo một instance; nếu scale lớn cần chuyển sang PostgreSQL hoặc database managed.
+  \item Protected viewer không thể ngăn tuyệt đối việc người dùng chụp màn hình bằng thiết bị khác.
+  \item R2 key phải được bảo vệ và không được commit vào repository.
+  \item Khi deploy Railway, thư mục chứa SQLite cần được mount bằng volume.
+\end{itemize}
+
+\clearpage

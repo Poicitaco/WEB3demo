@@ -1,0 +1,47 @@
+@startuml
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FBF8F3
+  BorderColor #2E2A27
+}
+skinparam database {
+  BackgroundColor #F1EDFF
+  BorderColor #5F4BDB
+}
+
+rectangle "Trình duyệt người dùng" as Browser {
+  component "MetaMask" as MM
+  component "React UI\nDashboard / Upload / Viewer" as UI
+  component "Web Crypto API\nAES-GCM, ECDH, PBKDF2" as Crypto
+}
+
+rectangle "Next.js Application" as App {
+  component "Auth API\nnonce + JWT cookie" as Auth
+  component "Files API\nmetadata + versioning" as Files
+  component "Tokens API\nissue / validate / revoke" as Tokens
+  component "Approvals API\nK-of-N workflow" as Approvals
+  component "Storage API\nupload / get ciphertext" as StorageAPI
+  component "Audit API" as Audit
+}
+
+database "SQLite\nmetadata database" as DB
+cloud "Cloudflare R2\nciphertext storage" as R2
+
+MM --> Auth : ký nonce
+UI --> Crypto : mã hóa / giải mã
+UI --> Auth
+UI --> Files
+UI --> Tokens
+UI --> Approvals
+UI --> StorageAPI
+UI --> Audit
+
+Auth --> DB
+Files --> DB
+Tokens --> DB
+Approvals --> DB
+Audit --> DB
+StorageAPI --> R2
+Files --> R2 : lưu cid tham chiếu
+@enduml

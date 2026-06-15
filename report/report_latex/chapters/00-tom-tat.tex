@@ -1,0 +1,10 @@
+\chapter*{TÓM TẮT}
+\addcontentsline{toc}{chapter}{TÓM TẮT}
+
+Báo cáo trình bày quá trình phân tích, thiết kế, cài đặt và kiểm thử hệ thống \projectname{} trong khuôn khổ môn Kỹ thuật phần mềm. Hệ thống giải quyết bài toán chia sẻ tài liệu nhạy cảm sau khi upload: tài liệu được mã hóa phía client, lưu trữ dưới dạng ciphertext, cấp quyền bằng token, hỗ trợ thu hồi quyền và cho phép thiết lập cơ chế phê duyệt nhiều ví đối với tài liệu quan trọng.
+
+Về mặt kỹ thuật, hệ thống sử dụng Next.js và React cho giao diện, Next.js API Routes cho backend, SQLite cho metadata, MetaMask cho định danh người dùng, Web Crypto API cho mã hóa phía trình duyệt và Cloudflare R2 cho lưu trữ ciphertext khi triển khai online. Báo cáo tập trung vào các nội dung của Kỹ thuật phần mềm: khảo sát bài toán, phân tích yêu cầu, thiết kế use case, thiết kế kiến trúc, thiết kế cơ sở dữ liệu, thiết kế API, cài đặt module, kiểm thử và triển khai.
+
+Kết quả đạt được là một prototype có thể demo theo luồng ba ví: A là chủ sở hữu tài liệu, B là người đồng phê duyệt và C là người nhận. C chỉ có thể mở tài liệu khi yêu cầu truy cập đã được A và B phê duyệt đủ ngưỡng. Hệ thống cũng cung cấp dashboard, protected viewer, audit trail, healthcheck và tài liệu triển khai Railway/R2.
+
+\clearpage

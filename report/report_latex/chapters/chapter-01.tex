@@ -1,0 +1,92 @@
+\chapter*{CHƯƠNG 1: TỔNG QUAN ĐỀ TÀI VÀ CƠ SỞ LÝ THUYẾT}
+\addcontentsline{toc}{chapter}{CHƯƠNG 1: TỔNG QUAN ĐỀ TÀI VÀ CƠ SỞ LÝ THUYẾT}
+
+Chương này trình bày bối cảnh bài toán và các khái niệm kỹ thuật làm nền tảng cho hệ thống \projectname{}. Các nội dung gồm chia sẻ tài liệu bảo mật, mã hóa phía client, định danh bằng ví blockchain, token truy cập, phê duyệt nhiều người, audit trail và lưu trữ object storage.
+
+\section*{1.1. Bài toán chia sẻ tài liệu bảo mật}
+\addcontentsline{toc}{section}{1.1. Bài toán chia sẻ tài liệu bảo mật}
+
+Chia sẻ tài liệu thông thường thường dựa trên mô hình người gửi tải file lên server, sau đó người nhận tải bản gốc xuống. Mô hình này đơn giản nhưng tạo ra nhiều rủi ro đối với tài liệu nhạy cảm. Khi bản gốc được lưu trên server hoặc đã tải về thiết bị người nhận, chủ sở hữu khó kiểm soát việc sao chép, chuyển tiếp hoặc sử dụng sau thời hạn cho phép.
+
+Trong bối cảnh học thuật, tài liệu như bài báo chưa công bố, luận văn, đề cương nghiên cứu hoặc dữ liệu thí nghiệm có thể cần chia sẻ với người hướng dẫn, đồng tác giả hoặc hội đồng duyệt. Các tài liệu này cần cơ chế kiểm soát chặt hơn so với link tải thông thường: người nhận phải đúng danh tính, quyền truy cập có thời hạn, có thể thu hồi, và một số trường hợp cần nhiều người đồng ý trước khi mở.
+
+\section*{1.2. Mã hóa phía client}
+\addcontentsline{toc}{section}{1.2. Mã hóa phía client}
+
+Mã hóa phía client là phương pháp trong đó dữ liệu được mã hóa ngay trên thiết bị người dùng trước khi gửi đến server. Với cách này, server chỉ nhận ciphertext, không trực tiếp nhận plaintext. Trong \projectname{}, hướng tiếp cận này giúp giảm mức độ tin cậy bắt buộc đặt vào server.
+
+Về mặt thiết kế, mã hóa phía client có ba lợi ích chính:
+
+\begin{itemize}
+  \item Giảm rủi ro lộ nội dung nếu storage hoặc server bị truy cập trái phép.
+  \item Tách rõ vai trò giữa storage ciphertext và metadata phân quyền.
+  \item Phù hợp với mục tiêu privacy-by-design trong chia sẻ tài liệu nhạy cảm.
+\end{itemize}
+
+Hệ thống sử dụng Web Crypto API của trình duyệt để thực hiện các thao tác mật mã. Đây là API chuẩn, tránh việc tự triển khai thuật toán mật mã bằng JavaScript thủ công.
+
+\section*{1.3. Định danh bằng ví blockchain}
+\addcontentsline{toc}{section}{1.3. Định danh bằng ví blockchain}
+
+Thay vì dùng tài khoản mật khẩu, hệ thống sử dụng ví MetaMask để xác thực người dùng. Quy trình cơ bản gồm:
+
+\begin{enumerate}
+  \item Server sinh một thông điệp nonce.
+  \item Người dùng ký thông điệp bằng ví MetaMask.
+  \item Server xác minh chữ ký để biết người dùng sở hữu địa chỉ ví đó.
+  \item Nếu hợp lệ, server tạo session bằng JWT cookie.
+\end{enumerate}
+
+Cách làm này giúp hệ thống không cần lưu mật khẩu. Địa chỉ ví trở thành định danh chính trong các bảng như tài liệu, token, thành viên kho, yêu cầu phê duyệt và audit event.
+
+\section*{1.4. Token truy cập và vòng đời quyền}
+\addcontentsline{toc}{section}{1.4. Token truy cập và vòng đời quyền}
+
+Token truy cập là mã đại diện cho quyền mở một tài liệu trong một phạm vi nhất định. Trong hệ thống, token có thể gắn với file, người nhận, thời hạn, trạng thái thu hồi và mục đích sử dụng. Token giúp tách quyền truy cập khỏi bản thân file: file vẫn tồn tại ở dạng ciphertext, còn việc người dùng có được lấy ciphertext và giải mã hay không phụ thuộc vào token và chính sách.
+
+Vòng đời token gồm:
+
+\begin{itemize}
+  \item Được tạo khi chủ sở hữu chia sẻ tài liệu hoặc khi yêu cầu phê duyệt đủ ngưỡng.
+  \item Được kiểm tra trước khi người nhận mở tài liệu.
+  \item Có thể hết hạn theo thời gian.
+  \item Có thể bị chủ sở hữu thu hồi.
+  \item Bị vô hiệu khi tài liệu bị hủy.
+\end{itemize}
+
+\section*{1.5. Phê duyệt nhiều người}
+\addcontentsline{toc}{section}{1.5. Phê duyệt nhiều người}
+
+Phê duyệt nhiều người là cơ chế yêu cầu nhiều thành viên cùng xác nhận trước khi cấp quyền truy cập. Trong \projectname{}, kịch bản trọng tâm là A và B cùng duyệt thì C mới nhận token mở tài liệu. Cơ chế này phù hợp với tài liệu quan trọng cần kiểm soát chặt, chẳng hạn tài liệu nghiên cứu chưa công bố hoặc hồ sơ nội bộ.
+
+Về mặt phần mềm, phê duyệt nhiều người gồm các thành phần:
+
+\begin{itemize}
+  \item Chính sách ngưỡng trong kho nhóm.
+  \item Các share được mã hóa cho từng thành viên.
+  \item Yêu cầu truy cập do người nhận tạo.
+  \item Đóng góp phê duyệt của từng người duyệt.
+  \item Token chỉ được phát hành khi số phê duyệt đạt ngưỡng.
+\end{itemize}
+
+\section*{1.6. Audit trail}
+\addcontentsline{toc}{section}{1.6. Audit trail}
+
+Audit trail là nhật ký ghi lại các hành động quan trọng trong hệ thống, ví dụ tạo file, tạo token, thu hồi token, duyệt yêu cầu hoặc hủy tài liệu. Audit trail không ngăn chặn rủi ro trực tiếp, nhưng giúp truy vết và giải thích vòng đời truy cập.
+
+Trong dự án, bảng \texttt{audit\_events} được thiết kế với trigger ngăn cập nhật và xóa. Điều này giúp minh họa nguyên tắc nhật ký bất biến ở mức prototype.
+
+\section*{1.7. Cloud object storage}
+\addcontentsline{toc}{section}{1.7. Cloud object storage}
+
+Cloudflare R2 được dùng như object storage để lưu ciphertext khi triển khai online. Hệ thống không lưu bản gốc lên R2; mỗi object là dữ liệu đã mã hóa. Metadata như tên file, mime type, owner, token, approval và audit được lưu ở SQLite.
+
+Cách tách này có lợi cho thiết kế hệ thống:
+
+\begin{itemize}
+  \item Storage chỉ cần lưu object theo khóa nội dung.
+  \item Backend có thể đổi provider storage mà không thay đổi logic nghiệp vụ chính.
+  \item Khi chạy local, hệ thống vẫn có thể dùng local filesystem để demo nhanh.
+\end{itemize}
+
+\clearpage
