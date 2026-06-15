@@ -1,329 +1,304 @@
-# SecureShare - Client-Side Encrypted File Sharing
+# WEB3demo - Hệ thống chia sẻ tài liệu mã hóa có phê duyệt nhiều ví
 
-A secure, privacy-focused file sharing application that encrypts files on your browser using AES-256-GCM before uploading. Your keys never leave your device.
+WEB3demo là một hệ thống chia sẻ tài liệu bảo mật cho bối cảnh học thuật: người gửi tải tài liệu lên, tài liệu được mã hóa ở trình duyệt, ciphertext được lưu trên storage, còn quyền truy cập được kiểm soát bằng ví, token, thời hạn và cơ chế phê duyệt nhiều người.
 
-## Features
+Dự án được xây cho môn Kỹ thuật phần mềm, tập trung vào logic sản phẩm, kiến trúc hệ thống, luồng demo rõ ràng và khả năng mở rộng lên cloud.
 
-- 🔐 **Client-side Encryption**: Files encrypted with AES-256-GCM using Web Crypto API
-- 🔑 **Wallet Authentication**: Sign in with your Ethereum wallet (MetaMask) - no passwords needed
-- 🎟️ **Token-Based Access**: Share files with time-limited tokens that can be revoked instantly
-- 🔓 **Zero-Knowledge Server**: Server never has access to decryption keys or plaintext
-- 🛡️ **CSRF Protection**: Double-submit cookie pattern + SameSite cookies
-- 📱 **Responsive UI**: Modern, user-friendly interface built with React and Tailwind CSS
+## Mục tiêu sản phẩm
 
-## Tech Stack
+Bài toán không chỉ là "mã hóa rồi tải xuống". Hệ thống hướng tới một kịch bản thực tế hơn:
 
-### Frontend
+- Tác giả A sở hữu tài liệu hoặc bài báo khoa học.
+- Tài liệu không được lưu bản gốc trên server.
+- Người nhận C không tự mở được nếu chưa có quyền.
+- Một số tài liệu cần A và B cùng duyệt trước khi C nhận được token mở.
+- Chủ sở hữu có thể thu hồi token hoặc hủy tài liệu đã gửi.
+- Hệ thống có dashboard, audit log và viewer để trình bày rõ luồng bảo vệ.
 
-- **Framework**: Next.js 15 (App Router)
-- **UI**: React 19, Tailwind CSS v4
-- **Crypto**: Web Crypto API (AES-GCM, PBKDF2)
-- **Wallet**: Ethers.js (MetaMask integration)
+## Tính năng chính
 
-### Backend
+- Đăng nhập bằng ví MetaMask, không dùng mật khẩu truyền thống.
+- Mã hóa file phía client bằng Web Crypto API.
+- Lưu metadata trong SQLite, hỗ trợ Railway Volume khi deploy online.
+- Lưu ciphertext bằng local filesystem hoặc Cloudflare R2.
+- Tạo token chia sẻ có thời hạn, có thể thu hồi.
+- Hỗ trợ chế độ chỉ xem trong protected viewer.
+- Dashboard quản lý tài liệu, token, kho nhóm và phê duyệt.
+- Luồng phê duyệt ngưỡng: ví A và B cùng duyệt thì C mới mở được.
+- Hủy tài liệu bởi chủ sở hữu, đồng thời thu hồi token và approval còn liên quan.
+- Audit trail cho các hành động nhạy cảm.
+- Healthcheck `/api/health` để kiểm tra deploy.
 
-- **API**: Next.js API routes
-- **Auth**: JWT (HS256) with cookie-based sessions
-- **Database**: SQLite for metadata storage
-- **Security**: CSRF protection, Input validation
+## Kiến trúc tổng quan
 
-### Storage
+```txt
+Browser
+  |-- MetaMask ký nonce để đăng nhập
+  |-- Web Crypto mã hóa / giải mã file
+  |-- Protected viewer hiển thị nội dung được cấp quyền
 
-- **Ciphertext**: Local filesystem for demo, optional Cloudflare R2 for online deployments
-- **Metadata**: SQLite database
+Next.js App
+  |-- App Router UI
+  |-- API routes: auth, files, tokens, approvals, vaults, audit, storage
+  |-- JWT session bằng cookie
+  |-- CSRF protection cho mutation API
 
-## Prerequisites
+Database
+  |-- SQLite
+  |-- Local: data/app.sqlite
+  |-- Railway: /app/data/app.sqlite qua volume
 
-- Node.js v18 or higher
-- npm v9 or higher
-- MetaMask browser extension (for wallet integration)
+Storage
+  |-- local: thư mục storage/
+  |-- r2: Cloudflare R2 bucket, ví dụ r2web3
+```
 
-## Installation
+## Tech stack
+
+- Next.js 15, React 19, TypeScript.
+- Ethers.js cho MetaMask.
+- Web Crypto API cho mã hóa phía client.
+- better-sqlite3 cho metadata.
+- Cloudflare R2 qua S3-compatible SDK.
+- Playwright cho E2E test.
+- Docker/Railway cho deploy.
+
+## Luồng demo 3 ví
+
+Chuẩn bị 3 ví MetaMask:
+
+- A: chủ sở hữu tài liệu.
+- B: người đồng duyệt.
+- C: người nhận tài liệu.
+
+Kịch bản demo đề xuất:
+
+1. A đăng nhập bằng ví.
+2. A đăng ký encryption identity.
+3. A tạo kho hoặc tài liệu cần phê duyệt.
+4. A upload file, hệ thống mã hóa file trước khi upload.
+5. C yêu cầu mở tài liệu.
+6. A duyệt một lần, hệ thống vẫn chưa cấp token vì chưa đủ ngưỡng.
+7. B đăng nhập và duyệt lần hai.
+8. Khi đủ ngưỡng 2/2, hệ thống cấp approval token cho C.
+9. C nhập token, mở tài liệu trong viewer.
+10. A thu hồi token hoặc hủy tài liệu để chứng minh vòng đời quyền truy cập.
+
+## Chạy local
+
+Yêu cầu:
+
+- Node.js 20 trở lên.
+- npm.
+- MetaMask trên trình duyệt.
+
+Cài dependency:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Poicitaco/WEB3demo.git
-cd doan_attt
-
-# Install dependencies
 npm install
+```
 
-# Create environment file
-cp .env.local.example .env.local
+Tạo file môi trường từ mẫu:
 
-# Start development server
+```bash
+copy .env.example .env.local
+```
+
+Với Windows PowerShell có thể dùng:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Chạy dev:
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Mở:
 
-## Usage Guide
-
-### 1. Connect Your Wallet
-
-1. Click **"Connect Wallet"** in the top-right corner
-2. MetaMask will open - select your account and approve
-3. Sign the authentication message (nonce) to verify ownership
-4. Your wallet address will appear in the header
-
-### 2. Upload & Encrypt a File
-
-1. Navigate to the **Upload** page
-2. Drag and drop a file or click **Browse**
-3. Enter a **Title** and optional **Description**
-4. (Recommended) Enter a **Passphrase** to wrap the AES key
-5. Adjust **Token TTL** (10 minutes to 3 days)
-6. Click **Encrypt & Upload**
-7. The file is encrypted client-side; only ciphertext is sent to server
-8. A share token is generated
-
-### 3. Share the File
-
-1. Copy the **Share Token** or **Download Link**
-2. Send to recipient via any communication channel
-3. Tokens can be revoked anytime from the Dashboard
-
-### 4. Download & Decrypt
-
-1. Navigate to **Download** page (or use share link)
-2. Paste the **Token**
-3. Click **Validate** to check token and retrieve metadata
-4. Enter **Passphrase** if file was wrapped
-5. Click **Download & Decrypt**
-6. Decryption happens entirely in browser; server never sees plaintext
-
-### 5. Manage Files & Tokens
-
-From the **Dashboard**:
-
-- View all your uploaded files
-- Create new tokens for any file
-- Revoke existing tokens instantly
-- Set token TTL and optional address restrictions
-
-## Project Structure
-
-```
-doan_attt/
-├── src/
-│   ├── app/
-│   │   ├── page.tsx              # Home page
-│   │   ├── layout.tsx            # Root layout
-│   │   ├── globals.css           # Global styles
-│   │   ├── upload/               # Upload page
-│   │   ├── download/             # Download page
-│   │   ├── dashboard/            # Dashboard page
-│   │   └── api/                  # API routes
-│   ├── components/               # React components
-│   │   ├── UploadWizard.tsx
-│   │   ├── Downloader.tsx
-│   │   ├── TokenIssuer.tsx
-│   │   ├── TokenManager.tsx
-│   │   └── ...
-│   ├── contexts/                 # React contexts
-│   │   └── AuthContext.tsx
-│   └── lib/                      # Utilities
-│       ├── auth.ts
-│       ├── crypto.ts
-│       ├── db.ts
-│       └── ...
-├── report/
-│   ├── main.tex                  # LaTeX report
-│   ├── chapters/                 # Report chapters
-│   └── img/                      # Screenshots & diagrams
-├── tests/
-│   └── e2e.spec.ts              # Playwright E2E tests
-├── data/                         # SQLite database
-├── storage/                      # Encrypted files
-└── package.json
+```txt
+http://localhost:3000
 ```
 
-## API Endpoints
-
-Detailed UI integration guidance is available in
-[`docs/UI_HANDOFF.md`](docs/UI_HANDOFF.md). The final classroom presentation flow
-is documented in [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md), with a Vietnamese
-rehearsal script in [`docs/REHEARSAL_SCRIPT.md`](docs/REHEARSAL_SCRIPT.md).
-Current milestone
-status is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
-Container and Cloudflare R2 deployment steps are in
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), with a Railway-specific guide in
-[`docs/RAILWAY_DEPLOYMENT.md`](docs/RAILWAY_DEPLOYMENT.md).
-Report and slide update notes are in [`docs/REPORT_UPDATE_NOTES.md`](docs/REPORT_UPDATE_NOTES.md).
-The software-engineering architecture and requirements are documented in
-[`docs/SOFTWARE_ENGINEERING.md`](docs/SOFTWARE_ENGINEERING.md), with the verification
-strategy in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
-
-### Authentication
-
-- `POST /api/auth/start` - Get nonce for signing
-- `POST /api/auth/verify` - Verify signature and get JWT
-- `POST /api/auth/logout` - Sign out
-
-### File Storage
-
-- `POST /api/storage/upload` - Upload ciphertext
-- `GET /api/storage/get?token=...` - Download ciphertext with a valid token
-- `GET /api/storage/get?approvalRequestId=...` - Download after threshold approval
-
-### Files Metadata
-
-- `POST /api/files` - Create file metadata and get token
-- `GET /api/files/list` - List user's files
-- `GET /api/files/:id/versions` - List immutable file versions
-
-### Token Management
-
-- `POST /api/tokens/issue` - Issue new token
-- `POST /api/tokens/validate` - Validate token
-- `POST /api/tokens/revoke` - Revoke token
-- `GET /api/tokens/list` - List user's tokens
-
-### Security
-
-- `GET /api/csrf` - Get CSRF token
-- `GET /api/audit` - List authorized immutable audit events
-
-## Environment Variables
-
-Create `.env.local`:
+Chạy giống production để demo ổn định hơn:
 
 ```bash
-# Required in production.
+npm run build
+npm run start
+```
+
+## Cấu hình local storage
+
+Nếu chỉ cần chạy toàn bộ trên máy:
+
+```env
 JWT_SECRET=replace-with-a-long-random-secret
 REQUIRE_CSRF=true
-
-# Local demo storage.
+DB_PATH=data/app.sqlite
 STORAGE_PROVIDER=local
-
-# Cloudflare R2 storage for online deployments.
-# Set STORAGE_PROVIDER=r2 and fill these values from the R2 dashboard.
-CLOUDFLARE_R2_ACCOUNT_ID=
-CLOUDFLARE_R2_BUCKET=
-CLOUDFLARE_R2_ACCESS_KEY_ID=
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=
-CLOUDFLARE_R2_KEY_PREFIX=ciphertexts
-
-# Raw AES keys are only permitted for local demo flows.
 ALLOW_RAW_KEYS=false
 NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
 ```
 
-## Running Tests
+File mã hóa sẽ nằm trong `storage/`, metadata nằm trong `data/app.sqlite`.
+
+## Cấu hình local nhưng dùng Cloudflare R2
+
+Đây là phương án dự phòng tốt nếu Railway chưa ổn: app chạy local, nhưng file mã hóa vẫn lưu cloud.
+
+```env
+JWT_SECRET=replace-with-a-long-random-secret
+REQUIRE_CSRF=true
+DB_PATH=data/app.sqlite
+STORAGE_PROVIDER=r2
+CLOUDFLARE_R2_ACCOUNT_ID=<account_id>
+CLOUDFLARE_R2_BUCKET=<bucket_name>
+CLOUDFLARE_R2_ACCESS_KEY_ID=<rotated_access_key_id>
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=<rotated_secret_access_key>
+CLOUDFLARE_R2_KEY_PREFIX=ciphertexts
+ALLOW_RAW_KEYS=false
+NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
+```
+
+Không commit `.env.local`, `.env.production` hoặc bất kỳ file chứa key nào.
+
+## Deploy Railway
+
+Repository có sẵn:
+
+- `Dockerfile`
+- `railway.json`
+- `/api/health`
+- hỗ trợ `DB_PATH=/app/data/app.sqlite`
+
+Biến môi trường cần có trên Railway:
+
+```env
+JWT_SECRET=<long_random_secret>
+REQUIRE_CSRF=true
+DB_PATH=/app/data/app.sqlite
+STORAGE_PROVIDER=r2
+CLOUDFLARE_R2_ACCOUNT_ID=<account_id>
+CLOUDFLARE_R2_BUCKET=<bucket_name>
+CLOUDFLARE_R2_ACCESS_KEY_ID=<rotated_access_key_id>
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=<rotated_secret_access_key>
+CLOUDFLARE_R2_KEY_PREFIX=ciphertexts
+ALLOW_RAW_KEYS=false
+NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS=false
+```
+
+Railway cần volume mount tại:
+
+```txt
+/app/data
+```
+
+Sau khi deploy, kiểm tra:
+
+```txt
+https://your-domain.up.railway.app/api/health
+```
+
+Kết quả kỳ vọng:
+
+```json
+{
+  "ok": true,
+  "database": "ready",
+  "storageProvider": "r2"
+}
+```
+
+## Scripts
 
 ```bash
-# E2E tests with Playwright
-npm run test:e2e
+npm run dev          # chạy dev server
+npm run build        # build production
+npm run start        # chạy production server
+npm run lint         # kiểm tra lint
+npm run test:e2e     # chạy Playwright E2E
+npm run clean        # xóa cache build
+```
 
-# Lint code
+## Cấu trúc thư mục
+
+```txt
+src/
+  app/
+    api/             # API routes
+    dashboard/       # dashboard quản lý
+    download/        # trang nhận/mở tài liệu
+    upload/          # trang upload
+  components/        # UI component
+  contexts/          # Auth context
+  lib/               # db, storage, crypto helpers, csrf, audit
+docs/                # tài liệu demo, triển khai, test plan
+public/              # logo và visual assets
+tests/               # Playwright E2E
+data/                # SQLite local, không dùng để commit dữ liệu thật
+storage/             # ciphertext local, không dùng để commit dữ liệu thật
+```
+
+## API chính
+
+- `POST /api/auth/start`: tạo nonce đăng nhập.
+- `POST /api/auth/verify`: xác thực chữ ký ví.
+- `POST /api/storage/upload`: upload ciphertext.
+- `GET /api/storage/get`: lấy ciphertext nếu token hợp lệ.
+- `POST /api/files`: tạo metadata tài liệu.
+- `DELETE /api/files/[id]`: chủ sở hữu hủy tài liệu.
+- `POST /api/tokens/issue`: cấp token.
+- `POST /api/tokens/validate`: kiểm tra token.
+- `POST /api/tokens/revoke`: thu hồi token.
+- `GET /api/approvals`: danh sách yêu cầu phê duyệt.
+- `POST /api/approvals/[id]/approve`: duyệt yêu cầu.
+- `GET /api/audit`: xem audit event.
+- `GET /api/health`: kiểm tra app/database.
+
+## Tài liệu liên quan
+
+- `docs/RAILWAY_DEPLOYMENT.md`: hướng dẫn Railway chi tiết.
+- `docs/DEPLOYMENT.md`: hướng dẫn deploy tổng quát.
+- `docs/REHEARSAL_SCRIPT.md`: kịch bản nói khi bảo vệ.
+- `docs/REPORT_UPDATE_NOTES.md`: gợi ý cập nhật báo cáo.
+- `docs/SOFTWARE_ENGINEERING.md`: phân tích kỹ thuật phần mềm.
+- `docs/TEST_PLAN.md`: chiến lược kiểm thử.
+- `docs/UI_HANDOFF.md`: ghi chú UI/UX.
+- `docs/screenshots/`: ảnh chụp giao diện dùng cho báo cáo.
+
+## Giới hạn bảo mật cần nói rõ khi bảo vệ
+
+Hệ thống bảo vệ file ở mức mã hóa và quyền truy cập, nhưng không thể ngăn tuyệt đối mọi hành vi ngoài hệ thống:
+
+- Nếu người dùng được xem, họ vẫn có thể chụp màn hình bằng thiết bị khác.
+- Viewer chỉ đọc giúp giảm rủi ro tải bản gốc, không phải DRM tuyệt đối.
+- Audit log giúp phát hiện và truy vết hành vi bất thường.
+- Muốn tiến xa hơn có thể thêm watermark cá nhân hóa, phát hiện chụp màn hình, ZK permission proof, Merkle audit receipt hoặc time-locked encryption.
+
+Đây là điểm nên trình bày thẳng với giảng viên: hệ thống không hứa "không thể bị copy", mà thiết kế để giảm rủi ro, kiểm soát quyền, ghi nhận truy cập và chứng minh vòng đời bảo vệ tài liệu.
+
+## Trạng thái hiện tại
+
+Đã có bản demo hoạt động với:
+
+- Local filesystem hoặc Cloudflare R2.
+- SQLite local hoặc Railway volume.
+- UI dashboard mới.
+- Luồng token và approval nhiều ví.
+- Protected viewer.
+- Healthcheck và Docker deploy.
+
+Trước khi demo, nên chạy:
+
+```bash
 npm run lint
-
-# Build for production
 npm run build
-
-# Start production server
-npm start
 ```
 
-## Security Considerations
+Sau đó chọn một trong hai cách:
 
-### Client-Side
+- Online: Railway + R2.
+- Dự phòng: local app + R2.
 
-- ✅ AES-256-GCM for authenticated encryption
-- ✅ PBKDF2 (200k iterations) for key wrapping
-- ✅ 96-bit random IV per file (never reused)
-- ✅ Web Crypto API (hardware-accelerated when available)
-
-### Server-Side
-
-- ✅ Double-submit CSRF cookies
-- ✅ SameSite cookie attribute
-- ✅ JWT-based session management
-- ✅ Input validation and sanitization
-- ✅ Persistent SQLite-backed rate limiting on critical APIs
-- ✅ Immutable audit events for sensitive access and mutations
-
-### Limitations
-
-- 🔴 Local storage for demo (scale with IPFS/Filecoin)
-- 🔴 External monitoring and audit-log export are not configured
-- 🔴 Demo mode allows raw keys (use wrapped keys in production)
-
-## Future Roadmap
-
-### Short-term (1-2 months)
-
-- Enforce passphrase-wrapped keys
-- Optimize encryption/decryption with Web Workers
-- Comprehensive test coverage
-
-### Medium-term (3-6 months)
-
-- IPFS/Filecoin integration
-- Attribute-Based Access Control (ABAC)
-- External audit-log export and monitoring
-
-### Long-term (6+ months)
-
-- Smart contract integration (on-chain token management)
-- Native mobile apps (iOS/Android)
-- Multi-chain support
-
-## Development
-
-```bash
-# Start dev server with Turbopack (fast)
-npm run dev
-
-# Or with Webpack (slower)
-npm run dev:webpack
-
-# Build for production
-npm run build
-
-# Clean build cache
-npm run clean
-```
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Security & Audit
-
-⚠️ **Important**: This is a research/education project. Before using in production:
-
-- Conduct professional security audit
-- Connect audit events and rate-limit metrics to external monitoring
-- Use HTTPS everywhere
-- Disable demo mode (`ALLOW_DEMO_RAW_KEYS=false`)
-- Implement proper key backup/recovery
-
-## License
-
-This project is part of an academic capstone. See repository for license details.
-
-## Support
-
-For issues, questions, or suggestions:
-
-- Open an issue on GitHub
-- Check existing documentation in `/report` folder
-- Review API documentation in source code comments
-
-## Acknowledgments
-
-- NIST for AES and GCM specifications
-- W3C for Web Crypto API
-- Ethers.js team for web3 integration
-- Next.js and React communities
-
----
-
-**Built with ❤️ for secure, privacy-first file sharing**
