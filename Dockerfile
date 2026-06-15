@@ -25,6 +25,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
+# Railway mounts volumes at runtime, after image build. Running as root avoids
+# SQLite write failures when the mounted /app/data ownership is reset.
 EXPOSE 3000
 CMD ["node", "server.js"]
