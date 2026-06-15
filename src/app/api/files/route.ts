@@ -117,8 +117,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Parent file not found or forbidden' }, { status: 404 });
     }
     const parent = db.prepare(
-      'SELECT logical_file_id, vault_id FROM files WHERE id = ?'
-    ).get(parentFileId) as { logical_file_id: string | null; vault_id: string | null };
+      'SELECT logical_file_id, vault_id FROM files WHERE id = ? AND destroyed_at IS NULL'
+    ).get(parentFileId) as { logical_file_id: string | null; vault_id: string | null } | undefined;
+    if (!parent) return NextResponse.json({ error: 'Parent file is unavailable' }, { status: 410 });
     logicalFileId = parent.logical_file_id || parentFileId;
     effectiveVaultId = parent.vault_id;
     if ((vaultId ?? null) !== effectiveVaultId) {

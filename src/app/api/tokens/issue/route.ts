@@ -25,6 +25,10 @@ export async function POST(req: Request) {
   }
   const db = getDb();
   if (!canManageFile(db, fileId, address)) return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
+  const activeFile = db.prepare(
+    'SELECT id FROM files WHERE id = ? AND destroyed_at IS NULL'
+  ).get(fileId);
+  if (!activeFile) return NextResponse.json({ error: 'File is unavailable' }, { status: 410 });
   const token = randomUUID();
   const ttl = (typeof ttlMinutes === 'number' && ttlMinutes > 0 ? ttlMinutes : 24 * 60) * 60 * 1000;
   const expiresAt = new Date(Date.now() + ttl).toISOString();

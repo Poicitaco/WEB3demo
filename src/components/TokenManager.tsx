@@ -123,7 +123,12 @@ export default function TokenManager() {
                     <td className="font-mono text-xs">{row.issued_to_address ? `${row.issued_to_address.slice(0, 6)}...${row.issued_to_address.slice(-4)}` : 'Bất kỳ ai có liên kết'}</td>
                     <td>{row.max_downloads == null ? 'Không giới hạn' : `${Math.max(0, row.max_downloads - row.download_count)} / ${row.max_downloads}`}</td>
                     <td>{row.expires_at ? formatDateTimeUtc(row.expires_at) : '-'}</td>
-                    <td>{inactive ? <button className="btn-secondary text-xs" onClick={() => reissue(row)}>Cấp liên kết mới</button> : <button className="btn-secondary text-xs" onClick={() => revoke(row.token)}>Thu hồi</button>}</td>
+                    <td>{row.destroyed_at
+                      ? <span className="table-subtext">Không thể cấp lại</span>
+                      : inactive
+                        ? <button className="btn-secondary text-xs" onClick={() => reissue(row)}>Cấp liên kết mới</button>
+                        : <button className="btn-secondary text-xs" onClick={() => revoke(row.token)}>Thu hồi</button>
+                    }</td>
                   </tr>
                 );
               })}

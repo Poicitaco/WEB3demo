@@ -521,6 +521,109 @@ test.describe('Immutable file versioning', () => {
   });
 });
 
+test.describe('Owner document destruction', () => {
+  test('revokes all access and removes ciphertext while preserving metadata auditability', async ({ baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const outsider = await authenticatedRequest(baseURL);
+    const ciphertext = Buffer.from(`owner-destroy-${Date.now()}`);
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'destroy.bin',
+          mimeType: 'application/octet-stream',
+          buffer: ciphertext,
+        },
+      },
+    });
+    expect(upload.ok()).toBeTruthy();
+    const { cid } = await upload.json();
+
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title: 'Owner destroyed document',
+        cid,
+        fileName: 'destroy.txt',
+        mime: 'text/plain',
+        sizeBytes: ciphertext.length,
+        iv: Buffer.alloc(12, 20).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 21).toString('base64'),
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+    const { fileId, token } = await create.json();
+
+    const forbidden = await outsider.req.delete(`/api/files/${fileId}`, {
+      headers: { 'x-csrf': await csrfFor(outsider.req) },
+    });
+    expect(forbidden.status()).toBe(404);
+
+    const destroy = await owner.req.delete(`/api/files/${fileId}`, {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+    });
+    expect(destroy.ok()).toBeTruthy();
+    expect((await destroy.json()).ciphertextDeleted).toBeTruthy();
+
+    expect((await owner.req.post('/api/tokens/validate', { data: { token } })).status()).toBe(403);
+    expect((await owner.req.get(`/api/storage/get?token=${encodeURIComponent(token)}`)).status()).toBe(410);
+    const files = await owner.req.get('/api/files/list');
+    expect((await files.json()).files.some((file: { id: string }) => file.id === fileId)).toBeFalsy();
+    const reissue = await owner.req.post('/api/tokens/issue', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: { fileId, ttlMinutes: 60 },
+    });
+    expect(reissue.status()).toBe(410);
+
+    await owner.req.dispose();
+    await outsider.req.dispose();
+  });
+
+  test('destroys a sent document from the dashboard action', async ({ page, context, baseURL }) => {
+    if (!baseURL) test.skip();
+    const owner = await authenticatedRequest(baseURL);
+    const title = `Dashboard destroy ${Date.now()}`;
+    const ciphertext = Buffer.from(title);
+    const upload = await owner.req.post('/api/storage/upload', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      multipart: {
+        file: {
+          name: 'dashboard-destroy.bin',
+          mimeType: 'application/octet-stream',
+          buffer: ciphertext,
+        },
+      },
+    });
+    const { cid } = await upload.json();
+    const create = await owner.req.post('/api/files', {
+      headers: { 'x-csrf': await csrfFor(owner.req) },
+      data: {
+        title,
+        cid,
+        fileName: 'dashboard-destroy.txt',
+        mime: 'text/plain',
+        sizeBytes: ciphertext.length,
+        iv: Buffer.alloc(12, 22).toString('base64'),
+        rawKeyBase64: Buffer.alloc(32, 23).toString('base64'),
+      },
+    });
+    expect(create.ok()).toBeTruthy();
+
+    const storageState = await owner.req.storageState();
+    await context.addCookies(storageState.cookies);
+    await page.goto('/dashboard');
+    const row = page.locator('.inbox-row').filter({ hasText: title });
+    await expect(row).toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await row.getByRole('button', { name: 'Huỷ', exact: true }).click();
+    await expect(row).toBeHidden();
+    await expect(page.getByText('Đã huỷ tài liệu và thu hồi toàn bộ quyền truy cập.')).toBeVisible();
+
+    await owner.req.dispose();
+  });
+});
+
 test.describe('Self-destructing files', () => {
   test('deletes ciphertext after the configured number of downloads', async ({ baseURL }) => {
     if (!baseURL) test.skip();

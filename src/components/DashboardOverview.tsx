@@ -30,6 +30,8 @@ const actionLabels: Record<string, string> = {
   'vault.threshold_disabled': 'Đã tắt quy trình nhiều người duyệt',
   'approval.requested': 'Có yêu cầu mở tài liệu',
   'approval.contributed': 'Một thành viên đã đồng ý',
+  'file.destroyed': 'Đã huỷ tài liệu và toàn bộ quyền truy cập',
+  'file.ciphertext_delete_failed': 'Đã thu hồi quyền nhưng chưa dọn được bản mã',
   'identity.registered': 'Đã thiết lập thiết bị tin cậy',
 };
 

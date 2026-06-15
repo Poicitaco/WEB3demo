@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     `SELECT f.id, f.title, f.name, f.size_bytes, f.created_at, f.version_number, v.name AS vault_name
      FROM files f
      LEFT JOIN vaults v ON v.id = f.vault_id
-     WHERE f.owner_address = ?
+     WHERE f.owner_address = ? AND f.destroyed_at IS NULL
      ORDER BY f.created_at DESC LIMIT 200`
   ).all(address) as SentRow[];
   type ReceivedRow = SentRow & { token: string };
@@ -39,7 +39,8 @@ export default async function DashboardPage() {
      FROM tokens t
      JOIN files f ON f.id = t.file_id
      LEFT JOIN vaults v ON v.id = f.vault_id
-     WHERE t.issued_to_address = ? AND t.revoked = 0 AND (t.expires_at IS NULL OR datetime(t.expires_at) > datetime('now'))
+     WHERE t.issued_to_address = ? AND t.revoked = 0 AND f.destroyed_at IS NULL
+       AND (t.expires_at IS NULL OR datetime(t.expires_at) > datetime('now'))
      ORDER BY t.created_at DESC LIMIT 200`
   ).all(address.toLowerCase()) as ReceivedRow[];
   type WaitingRow = SentRow & { approval_count: number; threshold: number };
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
      JOIN files f ON f.id = r.file_id
      JOIN vaults v ON v.id = f.vault_id
      JOIN threshold_file_shares s ON s.file_id = r.file_id AND s.member_address = ?
-     WHERE r.status = 'pending'
+     WHERE r.status = 'pending' AND f.destroyed_at IS NULL
        AND datetime(r.expires_at) > datetime('now')
        AND NOT EXISTS (
          SELECT 1 FROM approval_contributions c WHERE c.request_id = r.id AND c.approver_address = ?
@@ -73,7 +74,7 @@ export default async function DashboardPage() {
   const activeLinks = (db.prepare(
     `SELECT COUNT(*) AS count
      FROM tokens t JOIN files f ON f.id = t.file_id
-     WHERE f.owner_address = ? AND t.revoked = 0
+     WHERE f.owner_address = ? AND t.revoked = 0 AND f.destroyed_at IS NULL
        AND (t.expires_at IS NULL OR datetime(t.expires_at) > datetime('now'))`
   ).get(address) as { count: number }).count;
   const workspaces = (db.prepare(

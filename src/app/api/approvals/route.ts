@@ -44,7 +44,7 @@ export async function POST(req: Request) {
              JOIN vault_members m ON m.vault_id = f.vault_id AND m.address = s.member_address
              WHERE s.file_id = f.id) AS eligible_approvers
      FROM files f JOIN threshold_files tf ON tf.file_id = f.id
-     WHERE f.id = ?`
+     WHERE f.id = ? AND f.destroyed_at IS NULL`
   ).get(fileId) as { vault_id: string; threshold: number; eligible_approvers: number } | undefined;
   if (!file || !getVaultRole(db, file.vault_id, address)) {
     return NextResponse.json({ ok: false, error: 'File not found or threshold approval unavailable' }, { status: 404 });

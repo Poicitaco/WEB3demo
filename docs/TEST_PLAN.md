@@ -23,6 +23,7 @@ rời thiết bị và các quy tắc cộng tác không thể bị bỏ qua.
 | Phân quyền nhóm | Owner, editor và viewer bị giới hạn đúng quyền |
 | Phiên bản bất biến | Liên kết cũ chỉ mở đúng phiên bản cũ |
 | Tự huỷ | Bản mã bị xoá sau đủ số lượt tải |
+| Chủ động huỷ tài liệu | Chỉ chủ tài liệu được huỷ; token bị thu hồi, bản mã được dọn và không thể cấp lại |
 | K-of-N | Khôi phục được với K phần; không đủ K thì thất bại |
 | Audit | Thành viên hợp lệ xem được; sự kiện không thể sửa/xoá |
 | Rate limit | Giới hạn vẫn tồn tại qua nhiều request |

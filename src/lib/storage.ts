@@ -93,6 +93,16 @@ export async function getCiphertextLocal(cid: string, deleteAfterRead = false) {
   });
 }
 
+export async function deleteCiphertextLocal(cid: string) {
+  try {
+    await fs.promises.unlink(path.join(storageDir(), cid));
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
 export async function putCiphertextR2(file: Blob): Promise<PutResult> {
   const buf = Buffer.from(await file.arrayBuffer());
   const cid = crypto.createHash('sha256').update(buf).digest('hex');
@@ -152,6 +162,14 @@ export async function getCiphertextR2(cid: string, deleteAfterRead = false) {
   }
 }
 
+export async function deleteCiphertextR2(cid: string) {
+  const { bucket } = r2Config();
+  const existed = await ciphertextExistsR2(cid);
+  if (!existed) return false;
+  await getR2Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: r2ObjectKey(cid) }));
+  return true;
+}
+
 export async function putCiphertext(file: Blob): Promise<PutResult> {
   if (provider === 'local') return putCiphertextLocal(file);
   if (provider === 'r2') return putCiphertextR2(file);
@@ -167,5 +185,11 @@ export async function ciphertextExists(cid: string) {
 export async function getCiphertext(cid: string, deleteAfterRead = false) {
   if (provider === 'local') return getCiphertextLocal(cid, deleteAfterRead);
   if (provider === 'r2') return getCiphertextR2(cid, deleteAfterRead);
+  throw new Error('Unsupported STORAGE_PROVIDER');
+}
+
+export async function deleteCiphertext(cid: string) {
+  if (provider === 'local') return deleteCiphertextLocal(cid);
+  if (provider === 'r2') return deleteCiphertextR2(cid);
   throw new Error('Unsupported STORAGE_PROVIDER');
 }

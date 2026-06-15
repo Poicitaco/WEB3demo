@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ChoiceSelect from '@/components/ChoiceSelect';
 import { formatDateUtc } from '@/lib/dateFormat';
+import { useToast } from '@/components/Toast';
 
 export type InboxDocument = {
   id: string;
@@ -41,9 +43,13 @@ export default function DocumentInbox({
   received: InboxDocument[];
   waiting: InboxDocument[];
 }) {
+  const router = useRouter();
+  const toast = useToast();
   const [tab, setTab] = useState<InboxTab>('sent');
   const [query, setQuery] = useState('');
   const [context, setContext] = useState('all');
+  const [destroyingId, setDestroyingId] = useState('');
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const sourceRows = useMemo(() => ({ sent, received, waiting })[tab], [tab, sent, received, waiting]);
   const contexts = useMemo(
     () => Array.from(new Set(sourceRows.map((row) => row.context).filter(Boolean) as string[])),
@@ -52,10 +58,11 @@ export default function DocumentInbox({
   const rows = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('vi');
     return sourceRows.filter((row) => {
+      if (hiddenIds.includes(row.id)) return false;
       const matchesQuery = !normalized || `${row.title || ''} ${row.name || ''} ${row.context || ''}`.toLocaleLowerCase('vi').includes(normalized);
       return matchesQuery && (context === 'all' || row.context === context);
     });
-  }, [sourceRows, query, context]);
+  }, [sourceRows, query, context, hiddenIds]);
 
   const labels: Record<InboxTab, { title: string; empty: string }> = {
     sent: { title: 'Đã gửi', empty: 'Bạn chưa gửi tài liệu nào.' },
@@ -65,6 +72,35 @@ export default function DocumentInbox({
 
   function openManagement(tool: 'links' | 'approvals') {
     window.dispatchEvent(new CustomEvent('dashboard:tool', { detail: tool }));
+  }
+
+  async function destroyDocument(row: InboxDocument) {
+    const confirmed = window.confirm(
+      `Huỷ "${row.title || row.name || 'tài liệu này'}"? Mọi token và yêu cầu đang chờ sẽ bị vô hiệu hoá. Thao tác này không thể hoàn tác.`
+    );
+    if (!confirmed) return;
+    setDestroyingId(row.id);
+    try {
+      const csrfResponse = await fetch('/api/csrf');
+      const { csrf } = await csrfResponse.json();
+      const response = await fetch(`/api/files/${row.id}`, {
+        method: 'DELETE',
+        headers: { 'x-csrf': csrf },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể huỷ tài liệu');
+      setHiddenIds((current) => [...current, row.id]);
+      window.dispatchEvent(new CustomEvent('tokens:changed'));
+      router.refresh();
+      toast.success(data.warning
+        ? 'Đã thu hồi toàn bộ quyền. Hệ thống sẽ thử dọn bản mã lại sau.'
+        : 'Đã huỷ tài liệu và thu hồi toàn bộ quyền truy cập.'
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDestroyingId('');
+    }
   }
 
   return (
@@ -140,13 +176,25 @@ export default function DocumentInbox({
               <small>{row.progress || (row.version ? `Phiên bản ${row.version}` : 'Riêng tư')}</small>
             </div>
             <time dateTime={row.createdAt}>{formatDateUtc(row.createdAt)}</time>
-            {row.token ? (
-              <Link href={`/download?token=${encodeURIComponent(row.token)}`} className="inbox-action">Mở tài liệu ↗</Link>
-            ) : tab === 'waiting' ? (
-              <button type="button" className="inbox-action" onClick={() => openManagement('approvals')}>Xem yêu cầu ↓</button>
-            ) : (
-              <button type="button" className="inbox-action" onClick={() => openManagement('links')}>Quản lý liên kết ↓</button>
-            )}
+            <div className="inbox-actions">
+              {row.token ? (
+                <Link href={`/download?token=${encodeURIComponent(row.token)}`} className="inbox-action">Mở tài liệu ↗</Link>
+              ) : tab === 'waiting' ? (
+                <button type="button" className="inbox-action" onClick={() => openManagement('approvals')}>Xem yêu cầu ↓</button>
+              ) : (
+                <button type="button" className="inbox-action" onClick={() => openManagement('links')}>Quản lý liên kết ↓</button>
+              )}
+              {tab === 'sent' && (
+                <button
+                  type="button"
+                  className="inbox-action inbox-action-danger"
+                  disabled={destroyingId === row.id}
+                  onClick={() => destroyDocument(row)}
+                >
+                  {destroyingId === row.id ? 'Đang huỷ...' : 'Huỷ'}
+                </button>
+              )}
+            </div>
           </article>
         ))}
       </div>

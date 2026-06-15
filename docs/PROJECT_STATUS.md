@@ -19,6 +19,9 @@
 | Immutable file versioning | `core/file-versioning` | Complete |
 | Self-destructing downloads | `core/self-destructing-files` | Complete |
 | Rate limiting and immutable audit trail | `core/security-hardening` | Complete |
+| A+B approval token issuance for requester C | `ui/tduong-redesign` | Complete |
+| Optional Cloudflare R2 ciphertext storage | `ui/tduong-redesign` | Complete |
+| Owner document destruction lifecycle | `ui/tduong-redesign` | Complete |
 
 All milestone branches are stacked in the order shown above. `develop` contains
 the complete stack.
@@ -27,7 +30,7 @@ the complete stack.
 
 These items are not required for the classroom prototype:
 
-- Production IPFS/Filecoin or S3 storage
+- Production database migration from local SQLite
 - On-chain token registry
 - Large-file chunked streaming encryption
 - External audit-log export and monitoring
