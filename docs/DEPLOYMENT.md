@@ -39,6 +39,9 @@ docker run --rm -p 3000:3000 \
 
 Verify `GET /api/health` returns HTTP 200, then run the three-wallet demo flow.
 
+For Railway Free, use the step-by-step guide in
+[`docs/RAILWAY_DEPLOYMENT.md`](RAILWAY_DEPLOYMENT.md).
+
 ## Production evolution
 
 For multiple application replicas, migrate metadata from SQLite to PostgreSQL

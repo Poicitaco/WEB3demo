@@ -147,7 +147,8 @@ rehearsal script in [`docs/REHEARSAL_SCRIPT.md`](docs/REHEARSAL_SCRIPT.md).
 Current milestone
 status is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 Container and Cloudflare R2 deployment steps are in
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), with a Railway-specific guide in
+[`docs/RAILWAY_DEPLOYMENT.md`](docs/RAILWAY_DEPLOYMENT.md).
 Report and slide update notes are in [`docs/REPORT_UPDATE_NOTES.md`](docs/REPORT_UPDATE_NOTES.md).
 The software-engineering architecture and requirements are documented in
 [`docs/SOFTWARE_ENGINEERING.md`](docs/SOFTWARE_ENGINEERING.md), with the verification
