@@ -57,7 +57,7 @@ export default function AccountMenu() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ address: addr, signature: sig })
         }).then(r => r.json());
-        if (!verify.ok) throw new Error(verify.error || 'Re-login failed');
+        if (!verify.ok) throw new Error(verify.error || 'Không thể đăng nhập lại bằng ví');
         setAddress(addr);
         success('Đã chuyển tài khoản');
       } catch (e) {
@@ -93,7 +93,7 @@ export default function AccountMenu() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, signature: sig }),
       }).then((r) => r.json());
-      if (!verify.ok) throw new Error(verify.error || 'Login failed');
+      if (!verify.ok) throw new Error(verify.error || 'Đăng nhập bằng ví thất bại');
       setAddress(addr);
       success('Đã kết nối ví');
     } catch (e) {

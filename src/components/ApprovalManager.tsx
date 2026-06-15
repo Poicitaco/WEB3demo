@@ -59,7 +59,7 @@ export default function ApprovalManager() {
         body: JSON.stringify({ fileId }),
       });
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create approval request');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tạo yêu cầu phê duyệt');
       toast.success('Đã tạo yêu cầu phê duyệt theo ngưỡng');
       await load();
     } catch (error) {
@@ -71,12 +71,12 @@ export default function ApprovalManager() {
     if (!address) return;
     try {
       const identity = await getLocalEncryptionIdentity(address);
-      if (!identity) throw new Error('This device does not have your encryption private key');
+      if (!identity) throw new Error('Thiết bị này không có khoá riêng để phê duyệt');
       const { decryptThresholdShare } = await import('@/lib/clientThresholdShares');
       const { wrapSecretForRecipient } = await import('@/lib/clientRecipientEnvelope');
       const response = await fetch(`/api/approvals/${requestId}`);
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to load approval request');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tải yêu cầu phê duyệt');
       const share = await decryptThresholdShare(
         data.request.encryptedShare as RecipientSecretEnvelope,
         identity.privateKey
@@ -91,7 +91,7 @@ export default function ApprovalManager() {
         body: JSON.stringify({ envelope }),
       });
       const approveData = await approveResponse.json();
-      if (!approveResponse.ok || !approveData.ok) throw new Error(approveData.error || 'Approval failed');
+      if (!approveResponse.ok || !approveData.ok) throw new Error(approveData.error || 'Phê duyệt thất bại');
       toast.success(approveData.token
         ? `Đã đủ phê duyệt và cấp token cho người yêu cầu (${approveData.approvalCount}/${approveData.threshold})`
         : `Đã gửi phê duyệt (${approveData.approvalCount}/${approveData.threshold})`
@@ -112,12 +112,12 @@ export default function ApprovalManager() {
     if (!address) return;
     try {
       const identity = await getLocalEncryptionIdentity(address);
-      if (!identity) throw new Error('This device does not have your encryption private key');
+      if (!identity) throw new Error('Thiết bị này không có khoá riêng để khôi phục tài liệu');
       const { combineSecret } = await import('@/lib/clientThresholdShares');
       const { unwrapSecretFromRecipientEnvelope } = await import('@/lib/clientRecipientEnvelope');
       const response = await fetch(`/api/approvals/${requestId}`);
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to load approval request');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tải yêu cầu phê duyệt');
       const request = data.request as {
         id: string;
         threshold: number;
@@ -128,7 +128,7 @@ export default function ApprovalManager() {
         mime?: string;
         name?: string;
       };
-      if (request.approvalCount < request.threshold) throw new Error('Not enough approvals yet');
+      if (request.approvalCount < request.threshold) throw new Error('Chưa đủ số người phê duyệt');
       const shares = await Promise.all(
         request.contributions.slice(0, request.threshold).map(async (contribution) => {
           const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, identity.privateKey);
@@ -137,7 +137,7 @@ export default function ApprovalManager() {
       );
       const rawKey = combineSecret(shares);
       const cipherResponse = await fetch(`/api/storage/get?approvalRequestId=${encodeURIComponent(request.id)}`);
-      if (!cipherResponse.ok) throw new Error('Failed to fetch ciphertext');
+      if (!cipherResponse.ok) throw new Error('Không thể tải bản mã');
       const cipher = await cipherResponse.arrayBuffer();
       const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
       const iv = Uint8Array.from(atob(request.iv), (character) => character.charCodeAt(0));

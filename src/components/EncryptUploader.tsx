@@ -26,7 +26,7 @@ export default function EncryptUploader() {
       // Use globalThis.crypto for Web Crypto API (client-side only)
       const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
-        throw new Error('Web Crypto API not available');
+        throw new Error('Trình duyệt không hỗ trợ Web Crypto API');
       }
 
       const plain = await file.arrayBuffer();
@@ -50,7 +50,7 @@ export default function EncryptUploader() {
       const csrfRes = await fetch('/api/csrf');
       const { csrf } = await csrfRes.json().catch(() => ({ csrf: '' }));
       const up = await fetch('/api/storage/upload', { method: 'POST', body: form, headers: { 'x-csrf': csrf } });
-      if (!up.ok) throw new Error('Upload failed');
+      if (!up.ok) throw new Error('Không thể tải bản mã lên');
       const { cid } = await up.json();
 
       setStatus('Đang lưu siêu dữ liệu...');
@@ -67,7 +67,7 @@ export default function EncryptUploader() {
           rawKeyBase64: bufToBase64(rawKey),
         }),
       });
-      if (!res.ok) throw new Error('Save metadata failed');
+      if (!res.ok) throw new Error('Không thể lưu siêu dữ liệu');
       const data = await res.json();
       setToken(data.token);
       setStatus('Hoàn tất');
@@ -78,10 +78,10 @@ export default function EncryptUploader() {
   };
 
   return (
-    <div className="border rounded p-4 flex flex-col gap-3">
+    <div className="glass p-4 flex flex-col gap-3">
       <input type="file" onChange={onFileChange} className="text-sm" />
       <button
-        className="px-3 py-1.5 rounded bg-black text-white dark:bg-white dark:text-black text-sm disabled:opacity-50"
+        className="btn-primary"
         onClick={run}
         disabled={!file}
       >

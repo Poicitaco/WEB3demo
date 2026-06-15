@@ -45,8 +45,8 @@ test('public pages hydrate without React mismatch warnings', async ({ page }) =>
 test('download actions require an authenticated wallet session', async ({ page }) => {
   await page.goto('/download?token=missing-token');
   await expect(page.getByText('Kết nối ví trước khi mở tài liệu')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Validate' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: /Download & Decrypt/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Kiểm tra quyền truy cập' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Mở tài liệu trong Viewer' })).toBeDisabled();
 });
 
 test('health endpoint reports database and storage readiness', async ({ request }) => {
@@ -955,13 +955,13 @@ test.describe('Upload/Download - passphrase flow', () => {
     await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Playwright Test');
     await page.locator('input[type="password"]').fill('pass1234-Strong');
     await page.getByRole('button', { name: /Cho phép tải gói mã hóa/ }).click();
-    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
     await page.getByText('Mã truy cập').waitFor();
-    await page.getByRole('link', { name: 'Open download' }).click();
-    await page.getByRole('button', { name: 'Validate' }).click();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
     await page.getByText('Sẵn sàng').waitFor();
     await page.locator('input[type="password"]').fill('pass1234-Strong');
-    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
     await expect(page.locator('.protected-reader-stage')).toContainText('Hello secure world');
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Tải gói mã hóa' }).click();
@@ -984,13 +984,13 @@ test.describe('Upload/Download - passphrase flow', () => {
     });
     await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Viewer Test');
     await page.locator('input[type="password"]').fill('pass1234-Strong');
-    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
     await page.getByText('Mã truy cập').waitFor();
-    await page.getByRole('link', { name: 'Open download' }).click();
-    await page.getByRole('button', { name: 'Validate' }).click();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
     await page.getByText('Sẵn sàng').waitFor();
     await page.locator('input[type="password"]').fill('pass1234-Strong');
-    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
     await expect(page.locator('.protected-reader')).toBeVisible();
     await expect(page.locator('.protected-reader-stage')).toContainText('Protected viewer content');
   });
@@ -1010,12 +1010,12 @@ test.describe('Upload/Download - demo raw key flow', () => {
       buffer: Buffer.from('Raw key demo'),
     });
     await page.getByPlaceholder('Tài liệu được mã hoá của tôi').fill('Demo File');
-    await page.getByRole('button', { name: 'Encrypt & Upload' }).click();
+    await page.getByRole('button', { name: 'Mã hoá và tải lên' }).click();
     await page.getByText('Mã truy cập').waitFor();
-    await page.getByRole('link', { name: 'Open download' }).click();
-    await page.getByRole('button', { name: 'Validate' }).click();
+    await page.getByRole('link', { name: 'Mở liên kết nhận tệp' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra quyền truy cập' }).click();
     await page.getByText('Sẵn sàng').waitFor();
-    await page.getByRole('button', { name: /Download & Decrypt/ }).click();
+    await page.getByRole('button', { name: 'Mở tài liệu trong Viewer' }).click();
     await expect(page.locator('.protected-reader-stage')).toContainText('Raw key demo');
   });
 });

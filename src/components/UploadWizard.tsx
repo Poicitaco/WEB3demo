@@ -458,7 +458,7 @@ export default function UploadWizard() {
           </div>
 
           <div className="pt-2">
-            <button aria-label="Encrypt & Upload" className="btn-primary" disabled={disabled} onClick={onSubmit}>
+            <button aria-label="Mã hoá và tải lên" className="btn-primary" disabled={disabled} onClick={onSubmit}>
               {step === 2 ? 'Đang xử lý...' : 'Mã hoá và tải lên'}
             </button>
             {!address && <span className="text-[11px] text-yellow-300 ml-3">Kết nối ví để lưu</span>}
@@ -484,7 +484,7 @@ export default function UploadWizard() {
               </div>
               <div className="muted text-[11px] mt-1">Gửi mã này hoặc liên kết bên dưới cho người nhận.</div>
               <div className="mt-3 flex gap-2">
-                <a aria-label="Open download" className="btn-primary text-xs" href={`/download?token=${encodeURIComponent(token)}`}>
+                <a aria-label="Mở liên kết nhận tệp" className="btn-primary text-xs" href={`/download?token=${encodeURIComponent(token)}`}>
                   Mở liên kết nhận tệp
                 </a>
                 <button

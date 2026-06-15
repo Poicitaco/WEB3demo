@@ -341,8 +341,8 @@ export default function Downloader() {
           <label className="label">Mã truy cập</label>
         <input type="text" placeholder="Dán mã truy cập" value={token} onChange={(e) => setToken(e.target.value)} className="input" />
         <div className="flex gap-2">
-          <button aria-label="Validate" className="btn-secondary" onClick={validate} disabled={!address || !token || authLoading}>Kiểm tra quyền</button>
-          <button aria-label="Download & Decrypt" className="btn-primary" onClick={async () => {
+          <button aria-label="Kiểm tra quyền truy cập" className="btn-secondary" onClick={validate} disabled={!address || !token || authLoading}>Kiểm tra quyền</button>
+          <button aria-label="Mở tài liệu trong Viewer" className="btn-primary" onClick={async () => {
             if (meta) {
               await downloadAndDecrypt();
               return;

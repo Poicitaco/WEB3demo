@@ -15,7 +15,7 @@ export default function WalletButton() {
     setLoading(true);
     try {
       const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-      if (!eth) throw new Error('MetaMask not found');
+      if (!eth) throw new Error('Không tìm thấy MetaMask');
       const provider = new ethers.BrowserProvider(eth as Eip1193Provider);
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
@@ -27,9 +27,9 @@ export default function WalletButton() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, signature: sig }),
       }).then((r) => r.json());
-      if (!verify.ok) throw new Error(verify.error || 'Login failed');
+      if (!verify.ok) throw new Error(verify.error || 'Đăng nhập bằng ví thất bại');
       setAddress(addr);
-      success('Wallet connected');
+      success('Đã kết nối ví');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toastError(msg);
@@ -43,7 +43,7 @@ export default function WalletButton() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       setAddress(null);
-      success('Signed out');
+      success('Đã đăng xuất');
       await refresh();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
