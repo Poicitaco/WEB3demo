@@ -1,6 +1,6 @@
-"use client";
+  "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 type Toast = { id: string; message: string; type?: 'success' | 'error' | 'info' };
 
@@ -27,7 +27,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const show = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = crypto.randomUUID();
-    setToasts((t) => [...t, { id, message, type }]);
+    setToasts((current) => [...current.filter((toast) => toast.message !== message), { id, message, type }].slice(-4));
     timers.current[id] = window.setTimeout(() => remove(id), 3500);
   }, [remove]);
 
@@ -39,16 +39,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     info: (m: string) => show(m, 'info'),
   }), [toasts, show]);
 
+  useEffect(() => () => {
+    Object.values(timers.current).forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  const labels = {
+    success: 'Hoàn tất',
+    error: 'Không thể thực hiện',
+    info: 'Thông báo',
+  } as const;
+
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] space-y-2 w-[320px]">
+      <div className="toast-stack" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => (
-          <div key={t.id} className={`glass p-3 text-sm border-l-2 ${t.type === 'success' ? 'border-l-emerald-400' : t.type === 'error' ? 'border-l-red-400' : 'border-l-cyan-400'}`}>
-            <div className="flex items-start justify-between gap-3">
+          <div key={t.id} className={`toast-item ${t.type || 'info'}`} role={t.type === 'error' ? 'alert' : 'status'}>
+            <div className="toast-symbol" aria-hidden="true"><i /></div>
+            <div className="toast-copy">
+              <strong>{labels[t.type || 'info']}</strong>
               <span>{t.message}</span>
-              <button className="btn-secondary text-xs px-2 py-1" onClick={() => remove(t.id)}>Close</button>
             </div>
+            <button className="toast-close" aria-label="Đóng thông báo" onClick={() => remove(t.id)}>×</button>
+            <span className="toast-progress" aria-hidden="true" />
           </div>
         ))}
       </div>

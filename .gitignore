@@ -35,6 +35,19 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+.dev.vars
+*.env
+*.env.*
+*.secret
+*.secrets
+*secret*
+*credentials*
+r2-credentials*
+cloudflare-*.json
+wrangler.toml
+wrangler.local.toml
+!.env.example
+!docs/**/*
 
 # local runtime data
 /data/*
@@ -44,6 +57,7 @@ yarn-error.log*
 
 # local scratch and backup files
 /.tmp/
+/.codex/
 *.bak
 
 # generated report artifacts

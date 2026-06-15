@@ -1,0 +1,7 @@
+# Poicitaco is the final reviewer for every repository change.
+* @Poicitaco
+
+# UI/UX changes also request tdguon's review while retaining Poicitaco approval.
+/src/app/** @Poicitaco @tdguon
+/src/components/** @Poicitaco @tdguon
+/public/** @Poicitaco @tdguon

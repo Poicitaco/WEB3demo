@@ -1,20 +1,15 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import { getLocalEncryptionIdentity } from '@/lib/clientEncryptionIdentity';
-import {
-  combineSecret,
-  decryptThresholdShare,
-} from '@/lib/clientThresholdShares';
-import {
-  unwrapSecretFromRecipientEnvelope,
-  wrapSecretForRecipient,
-} from '@/lib/clientRecipientEnvelope';
 import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
 import type { RecipientSecretEnvelope } from '@/lib/recipientEnvelope';
 import FileSelectCombobox from '@/components/FileSelectCombobox';
+import NotebookViewer from '@/components/NotebookViewer';
+import { protectedViewKind, type ProtectedViewKind } from '@/lib/protectedView';
 
 type ApprovalRow = {
   id: string;
@@ -26,6 +21,7 @@ type ApprovalRow = {
   vault_name: string;
   approval_count: number;
   can_approve: number;
+  approved_token?: string | null;
 };
 
 async function csrfToken() {
@@ -38,6 +34,14 @@ export default function ApprovalManager() {
   const toast = useToast();
   const [rows, setRows] = useState<ApprovalRow[]>([]);
   const [fileId, setFileId] = useState('');
+  const [viewerUrl, setViewerUrl] = useState('');
+  const [viewerText, setViewerText] = useState('');
+  const [viewerKind, setViewerKind] = useState<ProtectedViewKind>('unsupported');
+  const [viewerName, setViewerName] = useState('');
+
+  useEffect(() => () => {
+    if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+  }, [viewerUrl]);
 
   const load = useCallback(async () => {
     const response = await fetch('/api/approvals');
@@ -55,8 +59,8 @@ export default function ApprovalManager() {
         body: JSON.stringify({ fileId }),
       });
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create approval request');
-      toast.success('Threshold approval request created');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tạo yêu cầu phê duyệt');
+      toast.success('Đã tạo yêu cầu phê duyệt theo ngưỡng');
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
@@ -67,10 +71,12 @@ export default function ApprovalManager() {
     if (!address) return;
     try {
       const identity = await getLocalEncryptionIdentity(address);
-      if (!identity) throw new Error('This device does not have your encryption private key');
+      if (!identity) throw new Error('Thiết bị này không có khoá riêng để phê duyệt');
+      const { decryptThresholdShare } = await import('@/lib/clientThresholdShares');
+      const { wrapSecretForRecipient } = await import('@/lib/clientRecipientEnvelope');
       const response = await fetch(`/api/approvals/${requestId}`);
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to load approval request');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tải yêu cầu phê duyệt');
       const share = await decryptThresholdShare(
         data.request.encryptedShare as RecipientSecretEnvelope,
         identity.privateKey
@@ -85,22 +91,33 @@ export default function ApprovalManager() {
         body: JSON.stringify({ envelope }),
       });
       const approveData = await approveResponse.json();
-      if (!approveResponse.ok || !approveData.ok) throw new Error(approveData.error || 'Approval failed');
-      toast.success(`Approval submitted (${approveData.approvalCount}/${approveData.threshold})`);
+      if (!approveResponse.ok || !approveData.ok) throw new Error(approveData.error || 'Phê duyệt thất bại');
+      toast.success(approveData.token
+        ? `Đã đủ phê duyệt và cấp token cho người yêu cầu (${approveData.approvalCount}/${approveData.threshold})`
+        : `Đã gửi phê duyệt (${approveData.approvalCount}/${approveData.threshold})`
+      );
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
   }
 
-  async function recoverAndDownload(requestId: string) {
+  async function copyApprovalLink(token: string) {
+    const link = `${window.location.origin}/download?token=${encodeURIComponent(token)}`;
+    await navigator.clipboard.writeText(link);
+    toast.success('Đã sao chép liên kết mở bằng token');
+  }
+
+  async function recoverInViewer(requestId: string) {
     if (!address) return;
     try {
       const identity = await getLocalEncryptionIdentity(address);
-      if (!identity) throw new Error('This device does not have your encryption private key');
+      if (!identity) throw new Error('Thiết bị này không có khoá riêng để khôi phục tài liệu');
+      const { combineSecret } = await import('@/lib/clientThresholdShares');
+      const { unwrapSecretFromRecipientEnvelope } = await import('@/lib/clientRecipientEnvelope');
       const response = await fetch(`/api/approvals/${requestId}`);
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to load approval request');
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tải yêu cầu phê duyệt');
       const request = data.request as {
         id: string;
         threshold: number;
@@ -111,7 +128,7 @@ export default function ApprovalManager() {
         mime?: string;
         name?: string;
       };
-      if (request.approvalCount < request.threshold) throw new Error('Not enough approvals yet');
+      if (request.approvalCount < request.threshold) throw new Error('Chưa đủ số người phê duyệt');
       const shares = await Promise.all(
         request.contributions.slice(0, request.threshold).map(async (contribution) => {
           const plain = await unwrapSecretFromRecipientEnvelope(contribution.envelope, identity.privateKey);
@@ -120,38 +137,45 @@ export default function ApprovalManager() {
       );
       const rawKey = combineSecret(shares);
       const cipherResponse = await fetch(`/api/storage/get?approvalRequestId=${encodeURIComponent(request.id)}`);
-      if (!cipherResponse.ok) throw new Error('Failed to fetch ciphertext');
+      if (!cipherResponse.ok) throw new Error('Không thể tải bản mã');
       const cipher = await cipherResponse.arrayBuffer();
       const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
       const iv = Uint8Array.from(atob(request.iv), (character) => character.charCodeAt(0));
       const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
-      const url = URL.createObjectURL(new Blob([plain], { type: request.mime || 'application/octet-stream' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = request.name || 'file';
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success('Threshold-protected file recovered');
+      const kind = protectedViewKind(request.name, request.mime);
+      if (kind === 'unsupported') throw new Error('Định dạng này chưa có Viewer an toàn');
+      const blob = new Blob([plain], { type: request.mime || 'application/octet-stream' });
+      setViewerKind(kind);
+      setViewerName(request.name || 'Tài liệu');
+      if (kind === 'text' || kind === 'notebook') {
+        setViewerText(await blob.text());
+        setViewerUrl('');
+      } else {
+        if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+        setViewerText('');
+        setViewerUrl(URL.createObjectURL(blob));
+      }
+      toast.success('Đã khôi phục tài liệu vào Viewer');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
   }
 
   return (
-    <div className="glass p-4 overflow-x-auto">
-      <div className="text-sm font-semibold mb-2">Threshold Approval Requests</div>
+    <div className="glass allow-overflow p-4">
+      <div className="text-sm font-semibold mb-2">Yêu cầu phê duyệt theo ngưỡng</div>
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end mb-4">
-        <FileSelectCombobox value={fileId} onChange={setFileId} placeholder="Select a threshold-protected file..." />
-        <button className="btn-primary" disabled={!fileId} onClick={createRequest}>Request Access</button>
+        <FileSelectCombobox value={fileId} onChange={setFileId} placeholder="Chọn một tệp được bảo vệ theo ngưỡng..." />
+        <button className="btn-primary" disabled={!fileId} onClick={createRequest}>Yêu cầu truy cập</button>
       </div>
-      {rows.length === 0 ? <div className="text-sm muted">No approval requests.</div> : (
-        <table className="w-full text-sm">
+      {rows.length === 0 ? <div className="text-sm muted">Chưa có yêu cầu phê duyệt.</div> : (
+        <div className="table-scroll"><table className="w-full text-sm">
           <thead className="text-left muted">
             <tr>
-              <th className="py-2 pr-3">File</th>
-              <th className="py-2 pr-3">Vault</th>
-              <th className="py-2 pr-3">Progress</th>
-              <th className="py-2 pr-3">Action</th>
+              <th className="py-2 pr-3">Tệp</th>
+              <th className="py-2 pr-3">Kho</th>
+              <th className="py-2 pr-3">Tiến độ</th>
+              <th className="py-2 pr-3">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -164,11 +188,17 @@ export default function ApprovalManager() {
                   <td className="py-2 pr-3">{row.approval_count}/{row.threshold} ({row.status})</td>
                   <td className="py-2 pr-3">
                     <div className="flex flex-wrap gap-2">
-                      {row.can_approve ? <button className="btn-secondary text-xs" onClick={() => approve(row.id)}>Approve</button> : null}
+                      {row.can_approve ? <button className="btn-secondary text-xs" onClick={() => approve(row.id)}>Phê duyệt</button> : null}
                       {isRequester ? (
-                        <button className="btn-secondary text-xs" disabled={row.approval_count < row.threshold} onClick={() => recoverAndDownload(row.id)}>
-                          Recover & Download
+                        <button className="btn-secondary text-xs" disabled={row.approval_count < row.threshold} onClick={() => recoverInViewer(row.id)}>
+                          Khôi phục vào Viewer
                         </button>
+                      ) : null}
+                      {isRequester && row.approved_token ? (
+                        <>
+                          <a className="btn-secondary text-xs" href={`/download?token=${encodeURIComponent(row.approved_token)}`}>Mở bằng token</a>
+                          <button className="btn-secondary text-xs" onClick={() => copyApprovalLink(row.approved_token!)}>Sao chép link</button>
+                        </>
                       ) : null}
                     </div>
                   </td>
@@ -176,7 +206,21 @@ export default function ApprovalManager() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
+      )}
+      {(viewerUrl || viewerText) && (
+        <section className="protected-reader mt-4">
+          <div className="protected-reader-bar"><div><strong>{viewerName}</strong><span>Đã đủ phê duyệt · chỉ mở trong Viewer</span></div></div>
+          <div className="protected-reader-stage" onContextMenu={(event) => event.preventDefault()}>
+            {viewerKind === 'text' && <pre>{viewerText}</pre>}
+            {viewerKind === 'notebook' && <NotebookViewer source={viewerText} />}
+            {/* Blob URLs are local decrypted assets and cannot use the Next image optimizer. */}
+            {viewerKind === 'image' && <img src={viewerUrl} alt={viewerName} draggable={false} />}
+            {viewerKind === 'video' && <video src={viewerUrl} controls controlsList="nodownload noplaybackrate" disablePictureInPicture />}
+            {viewerKind === 'audio' && <audio src={viewerUrl} controls controlsList="nodownload noplaybackrate" />}
+            {viewerKind === 'pdf' && <iframe src={`${viewerUrl}#toolbar=0&navpanes=0`} title={viewerName} />}
+          </div>
+        </section>
       )}
     </div>
   );

@@ -7,6 +7,8 @@ import { consumeRateLimit, rateLimitHeaders, requestIdentifier } from '@/lib/rat
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  const sessionAddress = await getSessionAddress();
+  if (!sessionAddress) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const rateLimit = consumeRateLimit('token:validate', requestIdentifier(req), 120, 60);
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: 'Too many token validation attempts' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
@@ -20,6 +22,8 @@ export async function POST(req: Request) {
     expires_at: string | null;
     revoked: number;
     issued_to_address?: string | null;
+    approval_request_id?: string | null;
+    purpose?: 'share' | 'approval';
     cid: string;
     iv: Buffer;
     salt?: Buffer | null;
@@ -35,22 +39,28 @@ export async function POST(req: Request) {
     envelope_iv?: Buffer | null;
     envelope_wrapped_key?: Buffer | null;
     threshold_file_id?: string | null;
+    approval_status?: string | null;
+    approval_requester?: string | null;
     max_downloads?: number | null;
     download_count: number;
     destroyed_at?: string | null;
+    access_mode: 'download' | 'view';
   };
   const row = db
     .prepare(
-      `SELECT t.token, t.file_id, t.expires_at, t.revoked, t.issued_to_address,
+      `SELECT t.token, t.file_id, t.expires_at, t.revoked, t.issued_to_address, t.approval_request_id, t.purpose,
               f.cid, f.iv, f.salt, f.iv_wrap, f.wrapped_key, f.raw_key_base64, f.name, f.mime, f.size_bytes,
-              f.max_downloads, f.download_count, f.destroyed_at,
+              f.max_downloads, f.download_count, f.destroyed_at, f.access_mode,
               e.algorithm AS envelope_algorithm, e.ephemeral_public_key_jwk,
               e.salt AS envelope_salt, e.iv AS envelope_iv, e.wrapped_key AS envelope_wrapped_key
-              , tf.file_id AS threshold_file_id
+              , tf.file_id AS threshold_file_id,
+              ar.status AS approval_status,
+              ar.requester_address AS approval_requester
        FROM tokens t
        JOIN files f ON f.id = t.file_id
        LEFT JOIN key_envelopes e ON e.token = t.token
        LEFT JOIN threshold_files tf ON tf.file_id = f.id
+       LEFT JOIN approval_requests ar ON ar.id = t.approval_request_id
        WHERE t.token = ?`
     )
     .get(token) as Row | undefined;
@@ -61,11 +71,19 @@ export async function POST(req: Request) {
   }
   if (row.destroyed_at) return NextResponse.json({ ok: false, error: 'File has self-destructed' }, { status: 410 });
   if (row.issued_to_address) {
-    const sessionAddress = await getSessionAddress();
-    if (!sessionAddress || normalizeAddress(sessionAddress) !== normalizeAddress(row.issued_to_address)) {
+    if (normalizeAddress(sessionAddress) !== normalizeAddress(row.issued_to_address)) {
       return NextResponse.json({ ok: false, error: 'Token is restricted to another wallet' }, { status: 403 });
     }
   }
+  const normalizedSession = normalizeAddress(sessionAddress);
+  const approvalGranted = Boolean(
+    row.threshold_file_id &&
+    row.purpose === 'approval' &&
+    row.approval_request_id &&
+    row.approval_status === 'approved' &&
+    row.approval_requester &&
+    normalizeAddress(row.approval_requester) === normalizedSession
+  );
   const recipientEnvelope = row.envelope_algorithm && row.ephemeral_public_key_jwk && row.envelope_salt && row.envelope_iv && row.envelope_wrapped_key
     ? {
         algorithm: row.envelope_algorithm,
@@ -89,8 +107,11 @@ export async function POST(req: Request) {
     sizeBytes: row.size_bytes ?? undefined,
     recipientAddress: row.issued_to_address ? normalizeAddress(row.issued_to_address) : undefined,
     recipientEnvelope,
-    thresholdProtected: Boolean(row.threshold_file_id),
+    thresholdProtected: Boolean(row.threshold_file_id) && !approvalGranted,
+    approvalGranted,
+    approvalRequestId: approvalGranted ? row.approval_request_id : undefined,
     maxDownloads: row.max_downloads ?? undefined,
     remainingDownloads: row.max_downloads == null ? undefined : Math.max(0, row.max_downloads - row.download_count),
+    accessMode: row.access_mode,
   }, { headers: rateLimitHeaders(rateLimit) });
 }

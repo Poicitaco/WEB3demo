@@ -30,12 +30,14 @@ Target duration: 7-10 minutes.
 4. **Collaborative vault and Shamir approval**
    - Show a vault with owner, editor, and viewer roles.
    - Explain the K-of-N policy.
-   - Let the requester create an access request.
-   - Submit enough approvals and recover the file key.
+   - Let wallet C create an access request.
+   - Let wallets A and B approve; only the second approval issues a token restricted to C.
+   - Open the token as C and explain that the browser reconstructs the file key from shares wrapped for C.
 
 5. **Extension features**
    - Briefly show immutable versions.
    - Show remaining self-destruct downloads.
+   - Destroy a sent document and show that all tokens become unusable.
    - Mention rate limiting and immutable audit events.
 
 ## Key Technical Points
@@ -44,7 +46,8 @@ Target duration: 7-10 minutes.
 - ECDH P-256 wraps file keys for recipient wallets.
 - Shamir Secret Sharing splits a file key into K-of-N encrypted shares.
 - Tokens are version-specific and can expire or be revoked.
-- Ciphertext access requires a valid token or approved threshold request.
+- Threshold approval produces a requester-restricted token; the server never reconstructs the file key.
+- Ciphertext can use local storage for class demos or Cloudflare R2 for online deployments.
 - Sensitive actions create append-only audit events.
 
 ## Scope Statement

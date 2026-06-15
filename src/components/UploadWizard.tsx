@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EncryptionPublicJwk } from '@/lib/encryptionIdentity';
-import { wrapFileKeyForRecipient } from '@/lib/clientRecipientEnvelope';
-import { encryptThresholdShares, splitSecret } from '@/lib/clientThresholdShares';
+import ChoiceSelect from '@/components/ChoiceSelect';
+import DurationPicker from '@/components/DurationPicker';
+import { protectedViewKind, protectedViewLabel } from '@/lib/protectedView';
 
 function bufToBase64(buf: ArrayBuffer) {
   const bytes = new Uint8Array(buf);
@@ -40,26 +41,26 @@ function strengthLabel(pw: string) {
   if (hasLower && hasUpper) score++;
   if (hasNum) score++;
   if (hasSym) score++;
-  if (!pw) return { label: 'Optional', className: 'muted' } as const;
-  if (score >= 4) return { label: 'Strong', className: 'text-cyan-300' } as const;
-  if (score >= 2) return { label: 'Medium', className: 'text-yellow-300' } as const;
-  return { label: 'Weak', className: 'text-red-400' } as const;
+  if (!pw) return { label: 'Tuỳ chọn', className: 'muted' } as const;
+  if (score >= 4) return { label: 'Mạnh', className: 'text-cyan-300' } as const;
+  if (score >= 2) return { label: 'Trung bình', className: 'text-yellow-300' } as const;
+  return { label: 'Yếu', className: 'text-red-400' } as const;
 }
 
 const allowDemoRaw = process.env.NEXT_PUBLIC_ALLOW_DEMO_RAW_KEYS === 'true';
 
 export default function UploadWizard() {
-  const { address } = useAuth();
+  const { address, walletMismatch } = useAuth();
   const toast = useToast();
   const [step, setStep] = useState<Step>(1);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [status, setStatus] = useState('');
   const [token, setToken] = useState('');
-  const [cid, setCid] = useState('');
   const [description, setDescription] = useState('');
   const [ttl, setTtl] = useState<number>(1440);
   const [maxDownloads, setMaxDownloads] = useState<number>(0);
+  const [accessMode, setAccessMode] = useState<'view' | 'download'>('view');
   const [passphrase, setPassphrase] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [vaultId, setVaultId] = useState('');
@@ -123,30 +124,30 @@ export default function UploadWizard() {
     const titleOk = title.trim().length > 0;
     const recipientOk = /^0x[a-fA-F0-9]{40}$/.test(recipientAddress.trim());
     const passOk = Boolean(vaultPolicy) || allowDemoRaw || passphrase.trim().length > 0 || recipientOk;
-    const connected = Boolean(address);
-    return !file || !titleOk || !passOk || !connected;
-  }, [file, title, passphrase, recipientAddress, address, vaultPolicy]);
+    const connected = Boolean(address) && !walletMismatch;
+    const viewSupported = !file || protectedViewKind(file.name, file.type) !== 'unsupported';
+    return !file || !titleOk || !passOk || !connected || !viewSupported;
+  }, [file, title, passphrase, recipientAddress, address, walletMismatch, vaultPolicy]);
 
   const onSubmit = async () => {
     if (!file) return;
     const recipient = recipientAddress.trim();
     if (recipient && !/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
-      setStatus('Enter a valid recipient wallet address.');
+      setStatus('Nhập địa chỉ ví người nhận hợp lệ.');
       return;
     }
     if (!vaultPolicy && !allowDemoRaw && !passphrase.trim() && !recipient) {
-      setStatus('Enter a passphrase or recipient wallet.');
+      setStatus('Nhập mật khẩu hoặc ví người nhận.');
       return;
     }
-    setStatus('Encrypting…');
+    setStatus('Đang mã hoá...');
     setToken('');
-    setCid('');
     try {
       setStep(2);
       // Use globalThis.crypto for Web Crypto API (client-side only)
       const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
-        throw new Error('Web Crypto API not available');
+        throw new Error('Trình duyệt không hỗ trợ Web Crypto API');
       }
 
       const plain = await file.arrayBuffer();
@@ -155,7 +156,7 @@ export default function UploadWizard() {
       const ciphertext = await webCrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
       const rawKey = await webCrypto.subtle.exportKey('raw', key);
 
-      setStatus('Uploading…');
+      setStatus('Đang tải lên...');
       const blob = new Blob([ciphertext], { type: 'application/octet-stream' });
       const form = new FormData();
       form.append('file', blob, 'ciphertext.bin');
@@ -164,12 +165,11 @@ export default function UploadWizard() {
       const csrfRes = await fetch('/api/csrf');
       const { csrf } = await csrfRes.json().catch(() => ({ csrf: '' }));
       const up = await fetch('/api/storage/upload', { method: 'POST', body: form, headers: { 'x-csrf': csrf } });
-      if (up.status === 401) throw new Error('Please connect your wallet before uploading.');
-      if (!up.ok) throw new Error(await up.text().catch(() => 'Upload failed'));
+      if (up.status === 401) throw new Error('Hãy kết nối ví trước khi tải lên.');
+      if (!up.ok) throw new Error(await up.text().catch(() => 'Tải lên thất bại'));
       const { cid } = (await up.json()) as { cid: string };
-      setCid(cid);
 
-      setStatus('Saving metadata…');
+      setStatus('Đang lưu siêu dữ liệu...');
       let payload: Record<string, unknown> = {
         title: title || file.name,
         description,
@@ -180,14 +180,16 @@ export default function UploadWizard() {
         iv: bufToBase64(iv.buffer),
         ttlMinutes: ttl,
         maxDownloads: maxDownloads > 0 ? maxDownloads : undefined,
+        accessMode,
         vaultId: vaultId || undefined,
         parentFileId: parentFileId || undefined,
       };
       if (vaultPolicy) {
+        const { encryptThresholdShares, splitSecret } = await import('@/lib/clientThresholdShares');
         if (vaultMembers.length !== vaultPolicy.total_shares || vaultMembers.some((member) => !member.encryptionIdentity)) {
-          throw new Error('Vault threshold policy members are not ready');
+          throw new Error('Các thành viên của chính sách ngưỡng chưa sẵn sàng');
         }
-        setStatus('Creating encrypted threshold shares...');
+        setStatus('Đang tạo các mảnh khoá ngưỡng được mã hoá...');
         const shares = splitSecret(rawKey, vaultPolicy.total_shares, vaultPolicy.threshold);
         const encryptedShares = await encryptThresholdShares(
           shares,
@@ -205,11 +207,12 @@ export default function UploadWizard() {
           })),
         };
       } else if (recipient) {
-        setStatus('Encrypting key for recipient...');
+        const { wrapFileKeyForRecipient } = await import('@/lib/clientRecipientEnvelope');
+        setStatus('Đang mã hoá khoá cho người nhận...');
         const identityResponse = await fetch(`/api/identities/${encodeURIComponent(recipient)}`);
         const identityData = await identityResponse.json();
         if (!identityResponse.ok || !identityData.ok) {
-          throw new Error('Recipient must enable an encryption identity first');
+          throw new Error('Người nhận cần bật định danh mã hoá trước');
         }
         const recipientPublicKey = identityData.identity.publicKey as EncryptionPublicJwk;
         const recipientEnvelope = await wrapFileKeyForRecipient(rawKey, recipientPublicKey);
@@ -217,7 +220,7 @@ export default function UploadWizard() {
       } else if (passphrase.trim()) {
         const enc = new TextEncoder();
         const webCrypto = globalThis.crypto;
-        if (!webCrypto || !webCrypto.subtle) throw new Error('Web Crypto API not available');
+        if (!webCrypto || !webCrypto.subtle) throw new Error('Trình duyệt không hỗ trợ Web Crypto API');
         const salt = webCrypto.getRandomValues(new Uint8Array(16));
         const baseKey = await webCrypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
         const wrapKey = await webCrypto.subtle.deriveKey(
@@ -243,16 +246,16 @@ export default function UploadWizard() {
         headers: { 'Content-Type': 'application/json', 'x-csrf': csrf },
         body: JSON.stringify(payload),
       });
-      if (res.status === 401) throw new Error('Please connect your wallet to save file metadata.');
-      if (!res.ok) throw new Error(await res.text().catch(() => 'Save metadata failed'));
+      if (res.status === 401) throw new Error('Hãy kết nối ví để lưu siêu dữ liệu tệp.');
+      if (!res.ok) throw new Error(await res.text().catch(() => 'Lưu siêu dữ liệu thất bại'));
       const data = (await res.json()) as { token: string };
       setToken(data.token);
-      setStatus('Done');
-      toast.success('Upload complete');
+      setStatus('Hoàn tất');
+      toast.success('Tải lên hoàn tất');
       setStep(3);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus('Error: ' + msg);
+      setStatus('Lỗi: ' + msg);
       toast.error(msg);
       setStep(1);
     }
@@ -260,10 +263,22 @@ export default function UploadWizard() {
 
   return (
     <div className="glass p-5 sm:p-6" aria-live="polite">
+      {!address && (
+        <div className="connection-required">
+          <strong>Kết nối ví để gửi tài liệu</strong>
+          <span>Ví xác nhận bạn là chủ tài liệu và cho phép bạn quản lý hoặc thu hồi liên kết sau khi gửi.</span>
+        </div>
+      )}
+      {walletMismatch && (
+        <div className="connection-required danger">
+          <strong>Tài khoản ví không khớp</strong>
+          <span>Kết nối lại bằng tài khoản đang đăng nhập trước khi gửi tài liệu.</span>
+        </div>
+      )}
       {/* Step tabs */}
       <div className="mb-6">
         <div className="grid grid-cols-3 gap-3 text-xs font-medium">
-          {[{ n: 1, t: 'Basic Info' }, { n: 2, t: 'Encrypt & Upload' }, { n: 3, t: 'Share' }].map((s) => (
+          {[{ n: 1, t: 'Thông tin' }, { n: 2, t: 'Mã hoá và tải lên' }, { n: 3, t: 'Chia sẻ' }].map((s) => (
             <div
               key={s.n}
               className={`h-1.5 rounded-full ${step >= (s.n as Step) ? 'bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-3)]' : 'bg-[rgba(255,255,255,0.08)]'}`}
@@ -272,9 +287,9 @@ export default function UploadWizard() {
           ))}
         </div>
         <div className="mt-2 grid grid-cols-3 text-[11px] muted">
-          <div>Basic Info</div>
-          <div className="text-center">Encrypt & Upload</div>
-          <div className="text-right">Share</div>
+          <div>Thông tin</div>
+          <div className="text-center">Mã hoá và tải lên</div>
+          <div className="text-right">Chia sẻ</div>
         </div>
       </div>
 
@@ -291,12 +306,12 @@ export default function UploadWizard() {
           className={`relative rounded-xl transition-colors p-6 flex flex-col items-center justify-center min-h-[260px] text-center border ${dragActive ? 'border-[var(--accent-3)]' : 'border-[rgba(255,255,255,0.18)] border-dashed hover:border-[rgba(255,255,255,0.35)]'}`}
         >
           <input ref={inputRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          <div className="text-sm mb-3">Drop file here</div>
-          <div className="text-xs muted mb-4">or</div>
+          <div className="text-sm mb-3">Thả tệp vào đây</div>
+          <div className="text-xs muted mb-4">hoặc</div>
           <button type="button" className="btn-secondary" onClick={onBrowse}>
-            Browse
+            Chọn tệp
           </button>
-          <div className="text-[11px] muted mt-4">Max ~20MB for demo</div>
+          <div className="text-[11px] muted mt-4">Tối đa khoảng 20MB cho bản demo</div>
           {file && (
             <div className="mt-4 text-xs">
               <div className="font-mono">{file.name}</div>
@@ -308,48 +323,62 @@ export default function UploadWizard() {
         {/* Right form */}
         <div className="space-y-4">
           <div>
-            <div className="text-sm font-semibold">Basic Info</div>
-            <div className="mt-2 text-xs muted">Give your upload a name and then encrypt.</div>
+            <div className="text-sm font-semibold">Thông tin cơ bản</div>
+            <div className="mt-2 text-xs muted">Đặt tên để bạn dễ nhận ra tài liệu này sau khi gửi.</div>
           </div>
 
-          <label className="label">Title</label>
+          <label className="label">Tiêu đề</label>
           <input
-            placeholder="My encrypted document"
+            placeholder="Tài liệu được mã hoá của tôi"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="input"
           />
 
-          <label className="label">Description</label>
+          <label className="label">Mô tả</label>
           <textarea
-            placeholder="Optional notes about this file"
+            placeholder="Ghi chú tuỳ chọn về tệp này"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="textarea"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DurationPicker value={ttl} onChange={setTtl} label="Liên kết còn hiệu lực trong" />
             <div>
-              <label className="label">Token TTL (minutes)</label>
-              <div className="flex items-center gap-3">
-                <input type="range" min={10} max={4320} step={10} value={ttl} onChange={(e) => setTtl(parseInt(e.target.value || '0', 10))} className="w-full" />
-                <span className="badge">{ttl}</span>
-              </div>
-              <div className="text-[11px] muted mt-1">10 min – 3 days</div>
-            </div>
-            <div>
-              <label className="label">Passphrase (wrap key)</label>
-              <input type="password" placeholder="Optional — increases security" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} className="input" />
+              <label className="label">Yêu cầu mật khẩu khi mở</label>
+              <input type="password" placeholder="Tuỳ chọn - tăng mức bảo mật" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} className="input" />
               <div className="text-[11px] muted mt-1 flex items-center gap-2">
-                <span>Wraps AES key with PBKDF2 (200k) + AES-GCM.</span>
+                <span>Người nhận cần nhập đúng mật khẩu để mở tài liệu.</span>
                 <span className={`badge ${strengthLabel(passphrase).className}`}>{strengthLabel(passphrase).label}</span>
               </div>
-              {!vaultPolicy && !allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Passphrase or recipient wallet is required.</div>}
+              {!vaultPolicy && !allowDemoRaw && !recipientAddress.trim() && <div className="text-[11px] text-yellow-300 mt-1">Cần mật khẩu hoặc ví người nhận.</div>}
             </div>
           </div>
 
           <div>
-            <label className="label">Self-destruct after downloads</label>
+            <label className="label">Cách người nhận sử dụng tài liệu</label>
+            <div className="access-mode-grid">
+              <button type="button" className={accessMode === 'view' ? 'active' : ''} onClick={() => setAccessMode('view')}>
+                <strong>Chỉ đọc được kiểm soát</strong>
+                <span>Hiển thị trong trình xem, gắn watermark và không cung cấp nút tải file.</span>
+              </button>
+              <button type="button" className={accessMode === 'download' ? 'active' : ''} onClick={() => setAccessMode('download')}>
+                <strong>Cho phép tải gói mã hóa</strong>
+                <span>Vẫn xem bằng Viewer; tệp tải về là gói `.vaultline`, không phải bản gốc.</span>
+              </button>
+            </div>
+            {accessMode === 'view' && <div className="text-[11px] muted mt-1">Phù hợp hơn cho bản thảo và bài báo khoa học cần theo dõi người đọc.</div>}
+            {accessMode === 'view' && file && (
+              <div className={`viewer-support ${protectedViewKind(file.name, file.type) === 'unsupported' ? 'unsupported' : ''}`}>
+                <strong>{protectedViewLabel(protectedViewKind(file.name, file.type))}</strong>
+                <span>{protectedViewKind(file.name, file.type) === 'unsupported' ? 'Hãy chuyển file sang PDF hoặc định dạng Viewer hỗ trợ.' : 'Có trình đọc bảo vệ cho định dạng này.'}</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Tự huỷ sau số lượt {accessMode === 'view' ? 'mở' : 'tải'}</label>
             <input
               className="input"
               type="number"
@@ -360,32 +389,39 @@ export default function UploadWizard() {
               disabled={Boolean(vaultPolicy)}
             />
             <div className="text-[11px] muted mt-1">
-              Use 0 for unlimited. The encrypted ciphertext is deleted after the final allowed download.
+              Nhập 0 để không giới hạn. Bản mã sẽ bị xoá sau lượt {accessMode === 'view' ? 'mở' : 'tải'} cuối cùng được cho phép.
             </div>
-            {vaultPolicy && <div className="text-[11px] text-yellow-300 mt-1">Not available for threshold-protected files yet.</div>}
+            {vaultPolicy && <div className="text-[11px] text-yellow-300 mt-1">Chưa hỗ trợ cho tệp được bảo vệ theo ngưỡng.</div>}
           </div>
 
           <div>
-            <label className="label">Recipient wallet (E2EE)</label>
+            <label className="label">Chỉ cho phép một người nhận</label>
             <input
               type="text"
-              placeholder="Optional recipient 0x address"
+              placeholder="Địa chỉ 0x người nhận, không bắt buộc"
               value={recipientAddress}
               onChange={(e) => setRecipientAddress(e.target.value)}
               className="input"
             />
             <div className="text-[11px] muted mt-1">
-              When set, only this wallet can validate the token and decrypt the file key. Passphrase is ignored.
+              Khi thiết lập, chỉ tài khoản này có thể mở tài liệu. Mật khẩu sẽ không được sử dụng.
             </div>
           </div>
 
           <div>
-            <label className="label">Versioning</label>
-            <select
-              className="input"
+            <label className="label">Quản lý phiên bản</label>
+            <ChoiceSelect
+              ariaLabel="Quản lý phiên bản"
               value={parentFileId}
-              onChange={(event) => {
-                const nextParent = event.target.value;
+              options={[
+                { value: '', label: 'Tạo một tệp mới', description: 'Bắt đầu một lịch sử phiên bản riêng' },
+                ...versionTargets.map((target) => ({
+                  value: target.id,
+                  label: target.title || target.name || target.id.slice(0, 8),
+                  description: `Tạo phiên bản tiếp theo từ v${target.version_number}`,
+                })),
+              ]}
+              onChange={(nextParent) => {
                 setParentFileId(nextParent);
                 const target = versionTargets.find((candidate) => candidate.id === nextParent);
                 if (target) {
@@ -393,45 +429,46 @@ export default function UploadWizard() {
                   setTitle(target.title || target.name || '');
                 }
               }}
-            >
-              <option value="">Create a new logical file</option>
-              {versionTargets.map((target) => (
-                <option key={target.id} value={target.id}>
-                  New version of {target.title || target.name || target.id.slice(0, 8)} (v{target.version_number})
-                </option>
-              ))}
-            </select>
-            <div className="text-[11px] muted mt-1">Each version gets independent ciphertext, key material, and access tokens.</div>
+            />
+            <div className="text-[11px] muted mt-1">Mỗi phiên bản được lưu riêng để bạn có thể xem lại lịch sử thay đổi.</div>
           </div>
 
           <div>
-            <label className="label">Destination</label>
-            <select className="input" value={vaultId} disabled={Boolean(parentFileId)} onChange={(event) => setVaultId(event.target.value)}>
-              <option value="">Personal files</option>
-              {vaults.map((vault) => (
-                <option key={vault.id} value={vault.id}>{vault.name} ({vault.role})</option>
-              ))}
-            </select>
-            <div className="text-[11px] muted mt-1">Vault owners and editors can upload encrypted files.</div>
+            <label className="label">Đích lưu trữ</label>
+            <ChoiceSelect
+              ariaLabel="Đích lưu trữ"
+              value={vaultId}
+              disabled={Boolean(parentFileId)}
+              options={[
+                { value: '', label: 'Tệp cá nhân', description: 'Chỉ bạn quản lý tệp này' },
+                ...vaults.map((vault) => ({
+                  value: vault.id,
+                  label: vault.name,
+                  description: vault.role === 'owner' ? 'Bạn là chủ kho' : 'Bạn là biên tập viên',
+                })),
+              ]}
+              onChange={setVaultId}
+            />
+            <div className="text-[11px] muted mt-1">Chủ kho và biên tập viên có thể tải tệp mã hoá lên.</div>
             {vaultPolicy && (
               <div className="text-[11px] text-cyan-300 mt-1">
-                Threshold protection enabled: {vaultPolicy.threshold} of {vaultPolicy.total_shares} approvals required.
+                Tài liệu cần {vaultPolicy.threshold} trên {vaultPolicy.total_shares} thành viên đồng ý trước khi được mở.
               </div>
             )}
           </div>
 
           <div className="pt-2">
-            <button className="btn-primary" disabled={disabled} onClick={onSubmit}>
-              {step === 2 ? 'Working…' : 'Encrypt & Upload'}
+            <button aria-label="Mã hoá và tải lên" className="btn-primary" disabled={disabled} onClick={onSubmit}>
+              {step === 2 ? 'Đang xử lý...' : 'Mã hoá và tải lên'}
             </button>
-            {!address && <span className="text-[11px] text-yellow-300 ml-3">Connect wallet to save</span>}
+            {!address && <span className="text-[11px] text-yellow-300 ml-3">Kết nối ví để lưu</span>}
           </div>
 
           {status && <div className="text-xs muted">{status}</div>}
 
           {token && (
             <div className="text-sm">
-              <div className="muted text-xs mb-1">Share token</div>
+              <div className="muted text-xs mb-1">Mã truy cập</div>
               <div className="glass p-3 rounded-md flex items-center justify-between gap-3">
                 <code className="text-xs break-all">{token}</code>
                 <button
@@ -442,13 +479,13 @@ export default function UploadWizard() {
                     setTimeout(() => setCopied(false), 1200);
                   }}
                 >
-                  Copy
+                  Sao chép
                 </button>
               </div>
-              <div className="muted text-[11px] mt-1">Use it at Download to decrypt. CID: {cid.slice(0, 12)}...</div>
+              <div className="muted text-[11px] mt-1">Gửi mã này hoặc liên kết bên dưới cho người nhận.</div>
               <div className="mt-3 flex gap-2">
-                <a className="btn-primary text-xs" href={`/download?token=${encodeURIComponent(token)}`}>
-                  Open download
+                <a aria-label="Mở liên kết nhận tệp" className="btn-primary text-xs" href={`/download?token=${encodeURIComponent(token)}`}>
+                  Mở liên kết nhận tệp
                 </a>
                 <button
                   className="btn-secondary text-xs"
@@ -458,10 +495,10 @@ export default function UploadWizard() {
                     setTimeout(() => setCopied(false), 1200);
                   }}
                 >
-                  Copy link
+                  Sao chép liên kết
                 </button>
               </div>
-              {copied && <div className="text-[11px] text-cyan-300 mt-1">Copied to clipboard</div>}
+              {copied && <div className="text-[11px] text-cyan-300 mt-1">Đã sao chép vào bộ nhớ tạm</div>}
             </div>
           )}
         </div>

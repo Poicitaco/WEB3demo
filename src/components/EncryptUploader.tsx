@@ -20,13 +20,13 @@ export default function EncryptUploader() {
 
   const run = async () => {
     if (!file) return;
-    setStatus('Encrypting…');
+    setStatus('Đang mã hoá...');
     setToken('');
     try {
       // Use globalThis.crypto for Web Crypto API (client-side only)
       const webCrypto = globalThis.crypto;
       if (!webCrypto || !webCrypto.subtle) {
-        throw new Error('Web Crypto API not available');
+        throw new Error('Trình duyệt không hỗ trợ Web Crypto API');
       }
 
       const plain = await file.arrayBuffer();
@@ -42,7 +42,7 @@ export default function EncryptUploader() {
       );
       const rawKey = await webCrypto.subtle.exportKey('raw', key);
 
-      setStatus('Uploading ciphertext…');
+      setStatus('Đang tải bản mã lên...');
       const blob = new Blob([ciphertext], { type: 'application/octet-stream' });
       const form = new FormData();
       form.append('file', blob, 'ciphertext.bin');
@@ -50,10 +50,10 @@ export default function EncryptUploader() {
       const csrfRes = await fetch('/api/csrf');
       const { csrf } = await csrfRes.json().catch(() => ({ csrf: '' }));
       const up = await fetch('/api/storage/upload', { method: 'POST', body: form, headers: { 'x-csrf': csrf } });
-      if (!up.ok) throw new Error('Upload failed');
+      if (!up.ok) throw new Error('Không thể tải bản mã lên');
       const { cid } = await up.json();
 
-      setStatus('Saving metadata…');
+      setStatus('Đang lưu siêu dữ liệu...');
       const res = await fetch('/api/files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf': csrf },
@@ -67,30 +67,30 @@ export default function EncryptUploader() {
           rawKeyBase64: bufToBase64(rawKey),
         }),
       });
-      if (!res.ok) throw new Error('Save metadata failed');
+      if (!res.ok) throw new Error('Không thể lưu siêu dữ liệu');
       const data = await res.json();
       setToken(data.token);
-      setStatus('Done');
+      setStatus('Hoàn tất');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setStatus('Error: ' + msg);
+      setStatus('Lỗi: ' + msg);
     }
   };
 
   return (
-    <div className="border rounded p-4 flex flex-col gap-3">
+    <div className="glass p-4 flex flex-col gap-3">
       <input type="file" onChange={onFileChange} className="text-sm" />
       <button
-        className="px-3 py-1.5 rounded bg-black text-white dark:bg-white dark:text-black text-sm disabled:opacity-50"
+        className="btn-primary"
         onClick={run}
         disabled={!file}
       >
-        Encrypt & Upload
+        Mã hoá và tải lên
       </button>
       {status && <div className="text-sm">{status}</div>}
       {token && (
         <div className="text-sm break-all">
-          Download token: <span className="font-mono">{token}</span>
+          Token tải xuống: <span className="font-mono">{token}</span>
         </div>
       )}
     </div>

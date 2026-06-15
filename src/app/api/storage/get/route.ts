@@ -9,26 +9,27 @@ import { recordAudit } from '@/lib/audit';
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
+  const sessionAddress = await getSessionAddress();
+  if (!sessionAddress) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const rateLimit = consumeRateLimit('storage:download', requestIdentifier(req), 240, 60);
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: 'Download rate limit exceeded' }, { status: 429, headers: rateLimitHeaders(rateLimit) });
   }
   const { searchParams } = new URL(req.url);
   const token = searchParams.get('token');
+  const purpose = searchParams.get('purpose') === 'package' ? 'package' : 'view';
   const approvalRequestId = searchParams.get('approvalRequestId');
   const db = getDb();
   if (approvalRequestId) {
-    const address = await getSessionAddress();
-    if (!address) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const approved = db.prepare(
       `SELECT f.id AS file_id, f.cid, r.expires_at FROM approval_requests r JOIN files f ON f.id = r.file_id
        WHERE r.id = ? AND r.requester_address = ? AND r.status = 'approved'
          AND f.destroyed_at IS NULL`
-    ).get(approvalRequestId, normalizeAddress(address)) as { file_id: string; cid: string; expires_at: string } | undefined;
+    ).get(approvalRequestId, normalizeAddress(sessionAddress)) as { file_id: string; cid: string; expires_at: string } | undefined;
     if (!approved || new Date(approved.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: 'Approval request not found or unavailable' }, { status: 404 });
     }
-    recordAudit(db, { actorAddress: address, action: 'file.downloaded', resourceType: 'file', resourceId: approved.file_id, metadata: { via: 'threshold_approval' } });
+    recordAudit(db, { actorAddress: sessionAddress, action: 'file.viewed', resourceType: 'file', resourceId: approved.file_id, metadata: { via: 'threshold_approval' } });
     const response = await getCiphertext(approved.cid);
     Object.entries(rateLimitHeaders(rateLimit)).forEach(([key, value]) => response.headers.set(key, value));
     return response;
@@ -36,27 +37,55 @@ export async function GET(req: Request) {
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
   const row = db.prepare(
     `SELECT t.file_id, t.issued_to_address, t.expires_at, t.revoked,
-            f.cid, f.max_downloads, f.download_count, f.destroyed_at,
-            tf.file_id AS threshold_file_id
+            t.approval_request_id, t.purpose,
+            f.cid, f.max_downloads, f.download_count, f.destroyed_at, f.access_mode,
+            tf.file_id AS threshold_file_id,
+            ar.status AS approval_status,
+            ar.requester_address AS approval_requester
      FROM tokens t JOIN files f ON f.id = t.file_id
      LEFT JOIN threshold_files tf ON tf.file_id = f.id
+     LEFT JOIN approval_requests ar ON ar.id = t.approval_request_id
      WHERE t.token = ?`
   ).get(token) as {
     file_id: string; issued_to_address: string | null; expires_at: string | null; revoked: number;
+    approval_request_id: string | null; purpose: 'share' | 'approval';
     cid: string; max_downloads: number | null; download_count: number; destroyed_at: string | null;
     threshold_file_id: string | null;
+    approval_status: string | null; approval_requester: string | null;
+    access_mode: 'download' | 'view';
   } | undefined;
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (row.revoked || row.destroyed_at) return NextResponse.json({ error: 'Token or file unavailable' }, { status: 410 });
+  const normalizedSession = normalizeAddress(sessionAddress);
   if (row.threshold_file_id) {
-    return NextResponse.json({ error: 'Threshold approval required' }, { status: 403 });
+    const approvedToken = row.purpose === 'approval' &&
+      row.approval_request_id &&
+      row.approval_status === 'approved' &&
+      row.approval_requester &&
+      normalizeAddress(row.approval_requester) === normalizedSession;
+    if (!approvedToken) {
+      return NextResponse.json({ error: 'Threshold approval required' }, { status: 403 });
+    }
+    if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+      return NextResponse.json({ error: 'Expired' }, { status: 403 });
+    }
+    if (!(await ciphertextExists(row.cid))) return NextResponse.json({ error: 'Ciphertext not found' }, { status: 404 });
+    recordAudit(db, {
+      actorAddress: sessionAddress,
+      action: purpose === 'package' ? 'file.encrypted_package_downloaded' : 'file.viewed',
+      resourceType: 'file',
+      resourceId: row.file_id,
+      metadata: { via: 'approval_token', purpose, approvalRequestId: row.approval_request_id },
+    });
+    const response = await getCiphertext(row.cid);
+    Object.entries(rateLimitHeaders(rateLimit)).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
   }
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
     return NextResponse.json({ error: 'Expired' }, { status: 403 });
   }
   if (row.issued_to_address) {
-    const address = await getSessionAddress();
-    if (!address || normalizeAddress(address) !== normalizeAddress(row.issued_to_address)) {
+    if (normalizedSession !== normalizeAddress(row.issued_to_address)) {
       return NextResponse.json({ error: 'Token is restricted to another wallet' }, { status: 403 });
     }
   }
@@ -83,11 +112,11 @@ export async function GET(req: Request) {
     }
   }
   recordAudit(db, {
-    actorAddress: await getSessionAddress(),
-    action: 'file.downloaded',
+    actorAddress: sessionAddress,
+    action: purpose === 'package' ? 'file.encrypted_package_downloaded' : 'file.viewed',
     resourceType: 'file',
     resourceId: row.file_id,
-    metadata: { via: 'token', selfDestructed: destroyAfterRead },
+    metadata: { via: 'token', purpose, accessMode: row.access_mode, selfDestructed: destroyAfterRead },
   });
   const response = await getCiphertext(row.cid, destroyAfterRead);
   Object.entries(rateLimitHeaders(rateLimit)).forEach(([key, value]) => response.headers.set(key, value));
