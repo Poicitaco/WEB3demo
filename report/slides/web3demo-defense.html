@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WEB3demo - Báo cáo Kỹ thuật phần mềm</title>
+  <style>
+    :root {
+      --paper: #f4eee2;
+      --paper-2: #fff9ed;
+      --ink: #141414;
+      --muted: #65605a;
+      --line: rgba(20, 20, 20, 0.12);
+      --red: #ef3b24;
+      --yellow: #f7c433;
+      --blue: #2457bd;
+      --soft-red: #ffe4dd;
+      --soft-yellow: #fff1bf;
+      --soft-blue: #dfe9ff;
+      --card: rgba(255, 252, 243, 0.78);
+      --shadow: 0 26px 80px rgba(35, 29, 18, 0.12);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #151515; color: var(--ink); font-family: Inter, "Segoe UI", Arial, sans-serif; }
+    body { overflow: hidden; }
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 58px 72px;
+      background:
+        radial-gradient(circle at 50% 33%, rgba(255, 219, 141, 0.42), transparent 26%),
+        radial-gradient(circle at 42% 35%, rgba(239, 59, 36, 0.08), transparent 18%),
+        radial-gradient(circle at 59% 41%, rgba(36, 87, 189, 0.08), transparent 18%),
+        linear-gradient(135deg, var(--paper-2), var(--paper));
+      overflow: hidden;
+    }
+    .slide.is-active { display: block; }
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(20,20,20,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20,20,20,0.03) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(circle at center, transparent 0, rgba(0,0,0,.14) 100%);
+    }
+    .topline {
+      position: absolute;
+      top: 22px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--red) 0 33%, var(--yellow) 33% 66%, var(--blue) 66% 100%);
+      transform: scaleX(var(--progress, 0));
+      transform-origin: left;
+      z-index: 20;
+    }
+    .brand {
+      position: absolute;
+      left: 72px;
+      top: 38px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      z-index: 4;
+    }
+    .brand img { width: 30px; height: 30px; object-fit: contain; border-radius: 50%; }
+    .page {
+      position: absolute;
+      right: 72px;
+      top: 42px;
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      z-index: 4;
+    }
+    .content { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+    .center { text-align: center; align-items: center; }
+    .kicker {
+      margin: 0 0 18px;
+      color: var(--red);
+      font-family: "Courier New", monospace;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      font-size: 16px;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 24px;
+      font-size: clamp(64px, 8.2vw, 126px);
+      line-height: 0.9;
+      letter-spacing: -0.075em;
+      font-weight: 900;
+    }
+    h2 {
+      margin-bottom: 22px;
+      font-size: clamp(42px, 5vw, 78px);
+      line-height: 0.92;
+      letter-spacing: -0.055em;
+      font-weight: 900;
+    }
+    h3 {
+      margin-bottom: 12px;
+      font-size: 24px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      max-width: 980px;
+      margin: 0 auto 28px;
+      font-size: 25px;
+      line-height: 1.45;
+      color: #252525;
+    }
+    .muted { color: var(--muted); }
+    .accent-red { color: var(--red); }
+    .accent-yellow { color: var(--yellow); }
+    .accent-blue { color: var(--blue); }
+    .title-split span { display: inline-block; }
+    .divider {
+      width: 150px;
+      height: 4px;
+      margin: 26px auto 40px;
+      background: linear-gradient(90deg, var(--red) 0 33%, var(--yellow) 33% 66%, var(--blue) 66%);
+      border-radius: 999px;
+    }
+    .meta {
+      font-size: 20px;
+      line-height: 1.8;
+      color: #232323;
+    }
+    .grid { display: grid; gap: 18px; }
+    .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .card.tight { padding: 18px; }
+    .card.red { background: linear-gradient(145deg, #fff8ef, var(--soft-red)); }
+    .card.yellow { background: linear-gradient(145deg, #fffaf0, var(--soft-yellow)); }
+    .card.blue { background: linear-gradient(145deg, #fffaf0, var(--soft-blue)); }
+    .num {
+      font-size: 54px;
+      font-weight: 900;
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+    .num.small { font-size: 34px; letter-spacing: -0.04em; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.46);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #26211b;
+      margin: 0 8px 8px 0;
+    }
+    ul.clean { list-style: none; padding: 0; margin: 0; }
+    ul.clean li {
+      position: relative;
+      padding-left: 54px;
+      margin: 12px 0;
+      font-size: 21px;
+      line-height: 1.35;
+    }
+    ul.clean li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 16px 0 0 var(--yellow), 32px 0 0 var(--blue);
+      transform: scale(.62);
+      transform-origin: left center;
+    }
+    .two {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 28px;
+      align-items: center;
+    }
+    .image-card {
+      border-radius: 30px;
+      overflow: hidden;
+      border: 1px solid rgba(20,20,20,.09);
+      background: rgba(255,255,255,.56);
+      box-shadow: var(--shadow);
+    }
+    .image-card img { width: 100%; display: block; }
+    .diagram img { max-height: 560px; object-fit: contain; background: white; }
+    .screen img { max-height: 590px; object-fit: contain; }
+    .flow { display: flex; align-items: stretch; gap: 12px; }
+    .flow .step { flex: 1; min-height: 150px; position: relative; }
+    .flow .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -15px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--blue);
+      z-index: 5;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 22px;
+      font-size: 18px;
+      background: rgba(255,255,255,.42);
+    }
+    .table th, .table td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .table th { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .table tr:last-child td { border-bottom: 0; }
+    .code {
+      font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+      font-size: 17px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      background: #191714;
+      color: #fff8e9;
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .quote {
+      font-size: 42px;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+      font-weight: 900;
+      max-width: 1080px;
+    }
+    .notes { display: none; }
+    .hint {
+      position: absolute;
+      left: 72px;
+      bottom: 34px;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      z-index: 10;
+    }
+    .logo-big { width: 92px; height: 92px; object-fit: contain; margin-bottom: 20px; }
+    .ribbon {
+      position: absolute;
+      right: -130px;
+      bottom: 90px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      border: 42px solid rgba(239,59,36,.08);
+      box-shadow: inset 0 0 0 42px rgba(247,196,51,.10), inset 0 0 0 86px rgba(36,87,189,.08);
+    }
+    .pill-row { margin-top: 12px; }
+    .big-word {
+      font-size: clamp(72px, 9vw, 138px);
+      line-height: .86;
+      font-weight: 950;
+      letter-spacing: -0.08em;
+      margin: 0;
+    }
+    .small-note { font-size: 17px; line-height: 1.45; color: var(--muted); }
+    .toc-card .num { margin-bottom: 18px; }
+    .toc-card h3 { margin-bottom: 8px; }
+    .toc-card p { margin: 0; color: var(--muted); line-height: 1.45; }
+    @media (max-width: 900px) {
+      .slide { padding: 44px 34px; }
+      .brand { left: 34px; }
+      .page { right: 34px; }
+      .two, .g2, .g3, .g4 { grid-template-columns: 1fr; }
+      h1 { font-size: 58px; }
+      h2 { font-size: 42px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" id="deck">
+    <div class="topline" id="topline"></div>
+
+    <section class="slide is-active" data-title="Cover">
+      <div class="ribbon"></div>
+      <div class="content center">
+        <img class="logo-big" src="../report_latex/images/logo.jpg" alt="Phenikaa School of Computing" />
+        <p class="kicker">Báo cáo môn học · Kỹ thuật phần mềm</p>
+        <h1 class="title-split">WEB3demo</h1>
+        <p class="lede">Hệ thống chia sẻ tài liệu bảo mật dựa trên ví blockchain, mã hóa phía client và phê duyệt nhiều người.</p>
+        <div class="divider"></div>
+        <div class="meta">
+          Giảng viên hướng dẫn: <b>TS. Trịnh Thanh Bình</b><br />
+          Thực hiện: <b>Hoàng Tiến Đạt - 23010864</b> · <b>Tô Thị Thùy Dương - 23010876</b>
+        </div>
+      </div>
+      <div class="notes">Mở đầu bằng vấn đề chính: đây không phải một website upload file đơn giản, mà là một prototype phần mềm có đầy đủ yêu cầu, thiết kế, cài đặt, kiểm thử và triển khai. Nhấn mạnh ba cụm từ khóa: ví blockchain, mã hóa phía client và phê duyệt nhiều người.</div>
+    </section>
+
+    <section class="slide" data-title="Agenda">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> WEB3demo</div>
+      <div class="content">
+        <p class="kicker">Lộ trình trình bày</p>
+        <h2>6 phần để bảo vệ một hệ thống, không chỉ một chức năng.</h2>
+        <div class="grid g3">
+          <div class="card toc-card red"><div class="num small accent-red">01</div><h3>Bài toán</h3><p>Vì sao gửi file thông thường không đủ an toàn cho tài liệu nghiên cứu.</p></div>
+          <div class="card toc-card yellow"><div class="num small accent-yellow">02</div><h3>Yêu cầu</h3><p>Tác nhân, use case, chức năng và phi chức năng.</p></div>
+          <div class="card toc-card blue"><div class="num small accent-blue">03</div><h3>Thiết kế</h3><p>Kiến trúc, database, API, luồng upload và approval.</p></div>
+          <div class="card toc-card red"><div class="num small accent-red">04</div><h3>Cài đặt</h3><p>Auth ví, Web Crypto, token, dashboard, storage R2.</p></div>
+          <div class="card toc-card yellow"><div class="num small accent-yellow">05</div><h3>Kiểm thử</h3><p>Lint, build, Playwright E2E và healthcheck.</p></div>
+          <div class="card toc-card blue"><div class="num small accent-blue">06</div><h3>Kết luận</h3><p>Kết quả, hạn chế thật và hướng phát triển.</p></div>
+        </div>
+      </div>
+      <div class="notes">Slide này giúp thầy cô biết bài trình bày có cấu trúc. Khi nói, đi nhanh qua 6 phần và nhấn mạnh rằng phần kỹ thuật phần mềm nằm ở yêu cầu, thiết kế, kiểm thử và đánh giá, không chỉ ở giao diện.</div>
+    </section>
+
+    <section class="slide" data-title="Problem">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 01 · Bài toán</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Vấn đề thực tế</p>
+            <h2>Gửi được file chưa đồng nghĩa với kiểm soát được file.</h2>
+            <p class="lede" style="margin-left:0">Email, drive link hoặc file tải xuống đều làm chủ sở hữu mất dần quyền kiểm soát sau khi tài liệu rời khỏi thiết bị.</p>
+          </div>
+          <div class="grid">
+            <div class="card red"><h3>Mất quyền sau khi gửi</h3><p>Người nhận có thể tải bản gốc, lưu lại, chuyển tiếp hoặc mở sau khi quyền đáng lẽ hết hạn.</p></div>
+            <div class="card yellow"><h3>Không có phê duyệt tập thể</h3><p>Tài liệu nhạy cảm thường cần nhiều người cùng đồng ý trước khi cấp quyền.</p></div>
+            <div class="card blue"><h3>Thiếu audit rõ ràng</h3><p>Khó trả lời: ai đã mở, mở lúc nào, token nào còn hiệu lực, hành động nào bị thu hồi.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Nêu ví dụ gần với môn học: bài báo chưa công bố, luận văn, dữ liệu thí nghiệm hoặc báo cáo nội bộ. Câu chốt là hệ thống cần kiểm soát vòng đời quyền truy cập, không chỉ lưu trữ file.</div>
+    </section>
+
+    <section class="slide" data-title="Solution">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 02 · Ý tưởng giải pháp</div>
+      <div class="content center">
+        <p class="kicker">Luận điểm chính</p>
+        <p class="quote">File gốc không đi vào server. Server chỉ quản lý <span class="accent-red">quyền</span>, <span class="accent-yellow">metadata</span> và <span class="accent-blue">audit</span>.</p>
+        <div class="grid g4" style="width:100%; margin-top:40px">
+          <div class="card"><div class="num accent-red">1</div><h3>Ví ký nonce</h3><p>Định danh bằng MetaMask, không lưu mật khẩu.</p></div>
+          <div class="card"><div class="num accent-yellow">2</div><h3>Mã hóa client</h3><p>Trình duyệt mã hóa trước khi upload.</p></div>
+          <div class="card"><div class="num accent-blue">3</div><h3>Token quyền</h3><p>Token có thời hạn, có thể thu hồi, gắn với ví.</p></div>
+          <div class="card"><div class="num">4</div><h3>A+B cho C</h3><p>Đủ ngưỡng phê duyệt mới tạo approval token.</p></div>
+        </div>
+      </div>
+      <div class="notes">Đây là slide trọng tâm. Nhấn mạnh sự tách biệt: nội dung file nằm ở ciphertext; quyền nằm ở token và approval; lịch sử nằm ở audit. Thiết kế này giúp đề tài có chiều sâu hệ thống.</div>
+    </section>
+
+    <section class="slide" data-title="Goals">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 03 · Mục tiêu</div>
+      <div class="content">
+        <p class="kicker">Mục tiêu đề tài</p>
+        <h2>Prototype cần chứng minh đủ một vòng đời tài liệu bảo mật.</h2>
+        <div class="grid g3">
+          <div class="card red"><h3>Người dùng</h3><ul class="clean"><li>Đăng nhập bằng ví MetaMask</li><li>Upload file qua wizard</li><li>Mở tài liệu trong protected viewer</li></ul></div>
+          <div class="card yellow"><h3>Quyền truy cập</h3><ul class="clean"><li>Tạo, validate, revoke token</li><li>Hỗ trợ token theo người nhận</li><li>Hủy tài liệu và vô hiệu hóa quyền</li></ul></div>
+          <div class="card blue"><h3>Quản trị hệ thống</h3><ul class="clean"><li>Dashboard tài liệu và kho nhóm</li><li>Approval A+B cho C</li><li>Audit trail và kiểm thử tự động</li></ul></div>
+        </div>
+      </div>
+      <div class="notes">Nói rõ đây là prototype trong phạm vi môn học. Mục tiêu không phải thay thế Google Drive mà chứng minh một mô hình kiểm soát quyền chặt hơn cho tài liệu nhạy cảm.</div>
+    </section>
+
+    <section class="slide" data-title="Actors">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 04 · Tác nhân</div>
+      <div class="content">
+        <p class="kicker">Phân tích yêu cầu</p>
+        <h2>Ba ví demo tương ứng ba vai trò nghiệp vụ.</h2>
+        <div class="grid g3">
+          <div class="card red"><div class="num accent-red">A</div><h3>Chủ sở hữu</h3><p>Upload, mã hóa, chia sẻ, thu hồi token, hủy tài liệu và xem audit.</p></div>
+          <div class="card yellow"><div class="num accent-yellow">B</div><h3>Người phê duyệt</h3><p>Thành viên kho có quyền tham gia duyệt yêu cầu mở tài liệu nhạy cảm.</p></div>
+          <div class="card blue"><div class="num accent-blue">C</div><h3>Người nhận</h3><p>Nhận token trực tiếp hoặc tạo yêu cầu truy cập để chờ A+B phê duyệt.</p></div>
+        </div>
+        <div class="card" style="margin-top:22px"><b>Hệ thống ngoài:</b> Cloudflare R2 chỉ lưu ciphertext; MetaMask cung cấp chữ ký ví; Railway chạy ứng dụng online.</div>
+      </div>
+      <div class="notes">Giải thích kịch bản demo với ba ví: A là chủ file, B là người duyệt, C là người muốn mở. Đây là cách làm cho luồng phê duyệt nhiều người dễ hiểu khi bảo vệ.</div>
+    </section>
+
+    <section class="slide" data-title="Use case">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 05 · Use case</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Use case tổng quát</p>
+            <h2>Chức năng xoay quanh vòng đời quyền truy cập.</h2>
+            <ul class="clean">
+              <li>Đăng nhập và đăng ký định danh mã hóa.</li>
+              <li>Upload, lưu ciphertext, tạo metadata.</li>
+              <li>Token, vault, approval và audit trail.</li>
+              <li>Viewer mở tài liệu sau khi quyền hợp lệ.</li>
+            </ul>
+          </div>
+          <div class="image-card diagram"><img src="../report_latex/diagrams/usecase.png" alt="Use case WEB3demo"></div>
+        </div>
+      </div>
+      <div class="notes">Khi trình bày, chỉ cần chỉ vào các nhóm lớn trong sơ đồ. R2 được thể hiện là external system, không phải người dùng. Điều này cho thấy nhóm hiểu ký pháp use case.</div>
+    </section>
+
+    <section class="slide" data-title="Requirements">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 06 · Yêu cầu</div>
+      <div class="content">
+        <p class="kicker">Yêu cầu chức năng</p>
+        <h2>15 yêu cầu chức năng được gom thành 5 cụm.</h2>
+        <table class="table">
+          <thead><tr><th>Cụm</th><th>Yêu cầu tiêu biểu</th><th>Ý nghĩa khi demo</th></tr></thead>
+          <tbody>
+            <tr><td><b>Định danh</b></td><td>FR-01, FR-02</td><td>Ví ký nonce và đăng ký public key để nhận share/key envelope.</td></tr>
+            <tr><td><b>File</b></td><td>FR-03, FR-04, FR-08</td><td>Upload ciphertext, lưu metadata, hủy tài liệu khi cần.</td></tr>
+            <tr><td><b>Token</b></td><td>FR-05, FR-06, FR-07</td><td>Cấp, kiểm tra và thu hồi quyền mở tài liệu.</td></tr>
+            <tr><td><b>Vault & approval</b></td><td>FR-09 đến FR-13</td><td>Kho nhóm, ngưỡng duyệt, A+B cùng đồng ý thì C mới mở.</td></tr>
+            <tr><td><b>Viewer & audit</b></td><td>FR-14, FR-15</td><td>Xem sau xác thực và ghi lại hành động quan trọng.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notes">Đây là slide thể hiện kỹ thuật phần mềm: yêu cầu được mã hóa FR. Nhấn mạnh yêu cầu không chỉ là mã hóa file, mà gồm quyền, audit, dashboard và deploy.</div>
+    </section>
+
+    <section class="slide" data-title="NFR">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 07 · Phi chức năng</div>
+      <div class="content">
+        <p class="kicker">Yêu cầu phi chức năng</p>
+        <h2>Thiết kế phải cân bằng bảo mật, riêng tư, khả dụng và bảo trì.</h2>
+        <div class="grid g3">
+          <div class="card red"><h3>Bảo mật</h3><ul class="clean"><li>Mã hóa phía client</li><li>JWT cookie + CSRF</li><li>Token thu hồi và kiểm tra vai trò</li></ul></div>
+          <div class="card yellow"><h3>Khả dụng</h3><ul class="clean"><li>Chạy local khi online lỗi</li><li>Healthcheck runtime</li><li>Storage provider có thể đổi</li></ul></div>
+          <div class="card blue"><h3>Bảo trì</h3><ul class="clean"><li>Tách API route theo module</li><li>Helper cho DB/storage/audit</li><li>E2E test theo luồng nghiệp vụ</li></ul></div>
+        </div>
+      </div>
+      <div class="notes">Giảng viên thường quan tâm yêu cầu phi chức năng vì nó chứng minh nhóm không chỉ làm chức năng. Nói rõ SQLite là lựa chọn prototype, còn PostgreSQL là hướng mở rộng.</div>
+    </section>
+
+    <section class="slide" data-title="Architecture">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 08 · Kiến trúc</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Kiến trúc ba tầng</p>
+            <h2>Client giữ phần nhạy cảm, backend quản lý quyền.</h2>
+            <ul class="clean">
+              <li><b>Trình duyệt:</b> React UI, MetaMask, Web Crypto.</li>
+              <li><b>Next.js API:</b> auth, files, tokens, approvals, audit, storage.</li>
+              <li><b>Dữ liệu:</b> SQLite metadata và Cloudflare R2 ciphertext.</li>
+            </ul>
+          </div>
+          <div class="image-card diagram"><img src="../report_latex/diagrams/architecture.png" alt="Architecture diagram"></div>
+        </div>
+      </div>
+      <div class="notes">Nói rõ đường đi dữ liệu: file rõ ở client, ciphertext lên storage, metadata vào SQLite. Đây là lý do server không cần biết nội dung file.</div>
+    </section>
+
+    <section class="slide" data-title="Data model">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 09 · Dữ liệu</div>
+      <div class="content">
+        <p class="kicker">Thiết kế cơ sở dữ liệu</p>
+        <h2>Database lưu quyền và lịch sử, không lưu bản rõ tài liệu.</h2>
+        <div class="grid g4">
+          <div class="card"><h3>files</h3><p>Owner, cid, mime, iv, access mode, version, trạng thái hủy.</p></div>
+          <div class="card"><h3>tokens</h3><p>Token, file, recipient, expiry, revoked, purpose share/approval.</p></div>
+          <div class="card"><h3>vaults</h3><p>Kho nhóm, thành viên, vai trò owner/editor/viewer.</p></div>
+          <div class="card"><h3>approvals</h3><p>Yêu cầu truy cập, contribution, threshold policy.</p></div>
+        </div>
+        <div class="card" style="margin-top:20px"><b>Audit:</b> bảng <code>audit_events</code> có trigger ngăn sửa/xóa, dùng để minh họa nhật ký bất biến trong prototype.</div>
+      </div>
+      <div class="notes">Slide này thay cho bảng dài trong báo cáo. Nêu quan hệ quan trọng: một file có nhiều token; một vault có nhiều thành viên; một yêu cầu có nhiều contribution; audit gắn với actor và resource.</div>
+    </section>
+
+    <section class="slide" data-title="Upload flow">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 10 · Upload</div>
+      <div class="content">
+        <p class="kicker">Luồng upload và chia sẻ</p>
+        <h2>File được mã hóa trước khi rời trình duyệt.</h2>
+        <div class="flow">
+          <div class="card step red"><div class="num small">01</div><h3>Kết nối ví</h3><p>Người dùng ký nonce, server tạo JWT session.</p></div>
+          <div class="card step yellow"><div class="num small">02</div><h3>Chọn file</h3><p>Upload wizard lấy tên, loại, mô tả, quyền và thời hạn.</p></div>
+          <div class="card step blue"><div class="num small">03</div><h3>Mã hóa</h3><p>Web Crypto tạo khóa, iv và ciphertext tại client.</p></div>
+          <div class="card step red"><div class="num small">04</div><h3>Lưu trữ</h3><p>Storage nhận ciphertext, backend lưu metadata và token.</p></div>
+        </div>
+      </div>
+      <div class="notes">Nhấn mạnh điểm khác biệt: server không nhận file rõ. Nếu thầy hỏi “download về thì sao”, trả lời rằng prototype ưu tiên viewer và token; không tuyên bố ngăn chụp màn hình tuyệt đối.</div>
+    </section>
+
+    <section class="slide" data-title="Approval flow">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 11 · Approval</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Luồng A+B cho C</p>
+            <h2>Token chỉ xuất hiện khi đủ ngưỡng phê duyệt.</h2>
+            <ul class="clean">
+              <li>C tạo yêu cầu mở file cần approval.</li>
+              <li>A duyệt: hệ thống ghi contribution nhưng chưa cấp token.</li>
+              <li>B duyệt: đủ ngưỡng, API tạo approval token cho C.</li>
+              <li>C dùng token hợp lệ để lấy ciphertext và giải mã trong viewer.</li>
+            </ul>
+          </div>
+          <div class="image-card diagram"><img src="../report_latex/diagrams/approval-sequence.png" alt="Approval sequence"></div>
+        </div>
+      </div>
+      <div class="notes">Đây là điểm nên demo kỹ. Nhắc lại quy tắc: requester không tự duyệt yêu cầu của mình; contribution mỗi người chỉ tính một lần; approval token gắn với requester.</div>
+    </section>
+
+    <section class="slide" data-title="API">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 12 · API</div>
+      <div class="content">
+        <p class="kicker">Thiết kế API</p>
+        <h2>API route được tách theo trách nhiệm nghiệp vụ.</h2>
+        <table class="table">
+          <thead><tr><th>Nhóm API</th><th>Endpoint tiêu biểu</th><th>Vai trò</th></tr></thead>
+          <tbody>
+            <tr><td>Auth</td><td>/api/auth/start · /api/auth/verify</td><td>Nonce, chữ ký ví, session cookie.</td></tr>
+            <tr><td>Storage</td><td>/api/storage/upload · /api/storage/get</td><td>Nhận/trả ciphertext khi quyền hợp lệ.</td></tr>
+            <tr><td>Files</td><td>/api/files · /api/files/[id]</td><td>Metadata file, version, hủy tài liệu.</td></tr>
+            <tr><td>Tokens</td><td>/api/tokens/issue · validate · revoke</td><td>Cấp, kiểm tra, thu hồi quyền.</td></tr>
+            <tr><td>Approvals</td><td>/api/approvals · /[id]/approve</td><td>Yêu cầu truy cập và contribution phê duyệt.</td></tr>
+            <tr><td>Audit</td><td>/api/audit · /api/health</td><td>Truy vấn nhật ký và kiểm tra runtime.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notes">Khi bảo vệ, có thể nói cách tách API giúp kiểm thử độc lập. Ví dụ Playwright request test có thể gọi thẳng validate token hoặc approval mà không cần thao tác UI.</div>
+    </section>
+
+    <section class="slide" data-title="Implementation">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 13 · Cài đặt</div>
+      <div class="content">
+        <p class="kicker">Công nghệ cài đặt</p>
+        <h2>Stack được chọn để demo nhanh nhưng vẫn có cấu trúc rõ.</h2>
+        <div class="grid g3">
+          <div class="card red"><h3>Frontend</h3><p>Next.js 15, React 19, TypeScript, dashboard, upload wizard, downloader và viewer.</p></div>
+          <div class="card yellow"><h3>Backend</h3><p>Next.js API Routes, JWT cookie, CSRF, access control, audit helper và rate limit.</p></div>
+          <div class="card blue"><h3>Storage</h3><p>SQLite metadata, local filesystem khi demo local, Cloudflare R2 khi demo online.</p></div>
+        </div>
+        <div class="pill-row"><span class="tag">MetaMask</span><span class="tag">Ethers.js</span><span class="tag">Web Crypto API</span><span class="tag">better-sqlite3</span><span class="tag">Railway</span></div>
+      </div>
+      <div class="notes">Nêu lý do chọn công nghệ: Next.js giúp gom UI và API route trong một project; SQLite phù hợp prototype; R2 giúp có cloud object storage miễn phí/nhẹ cho demo.</div>
+    </section>
+
+    <section class="slide" data-title="UI Home">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 14 · Giao diện</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Trang giới thiệu</p>
+            <h2>Giao diện nhấn vào thông điệp: “gửi file nhưng vẫn giữ quyền”.</h2>
+            <ul class="clean">
+              <li>Hero giải thích giá trị chính của hệ thống.</li>
+              <li>CTA dẫn đến upload hoặc dashboard.</li>
+              <li>Nhận diện có logo riêng và phong cách hiện đại.</li>
+            </ul>
+          </div>
+          <div class="image-card screen"><img src="../report_latex/images/live-home.png" alt="Home UI"></div>
+        </div>
+      </div>
+      <div class="notes">Slide UI nên trình bày ngắn, vì phần trọng tâm vẫn là logic. Nói rằng giao diện được Việt hóa và thiết kế để demo dễ hiểu với người không rành kỹ thuật.</div>
+    </section>
+
+    <section class="slide" data-title="UI Upload">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 15 · Upload wizard</div>
+      <div class="content">
+        <div class="two">
+          <div class="image-card screen"><img src="../report_latex/images/live-upload.png" alt="Upload UI"></div>
+          <div>
+            <p class="kicker">Thiết lập quyền</p>
+            <h2>Upload không chỉ chọn file, mà còn cấu hình chính sách.</h2>
+            <ul class="clean">
+              <li>Chọn file và nhập thông tin mô tả.</li>
+              <li>Chọn loại quyền: riêng tư, token, người nhận, vault.</li>
+              <li>Thiết lập thời hạn, số lượt mở và approval khi cần.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Nhấn mạnh upload wizard là nơi chuyển yêu cầu người dùng thành metadata và key material. Đây là nơi kết nối UI với logic mã hóa và quyền.</div>
+    </section>
+
+    <section class="slide" data-title="UI Dashboard">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 16 · Dashboard</div>
+      <div class="content">
+        <div class="two">
+          <div>
+            <p class="kicker">Không gian quản lý</p>
+            <h2>Dashboard gom các chức năng sau khi file đã được gửi.</h2>
+            <ul class="clean">
+              <li>Danh sách tài liệu và yêu cầu đang chờ xử lý.</li>
+              <li>Quản lý token, thu hồi, cấp lại quyền.</li>
+              <li>Kho nhóm, phê duyệt, phiên bản và audit.</li>
+            </ul>
+          </div>
+          <div class="image-card screen"><img src="../report_latex/images/live-dashboard.png" alt="Dashboard UI"></div>
+        </div>
+      </div>
+      <div class="notes">Nếu demo thật, đây là trang để cho thấy hệ thống không còn đơn giản. Có nhiều module quản lý: links, vaults, approvals, versions và audit.</div>
+    </section>
+
+    <section class="slide" data-title="UI Viewer">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 17 · Protected viewer</div>
+      <div class="content">
+        <div class="two">
+          <div class="image-card screen"><img src="../report_latex/images/live-download.png" alt="Download viewer UI"></div>
+          <div>
+            <p class="kicker">Mở tài liệu</p>
+            <h2>Viewer chỉ hoạt động sau khi token hợp lệ.</h2>
+            <ul class="clean">
+              <li>Người nhận nhập token hoặc approval token.</li>
+              <li>API validate token trước khi trả ciphertext.</li>
+              <li>Client giải mã và hiển thị trong viewer phù hợp loại file.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Nói thẳng hạn chế: viewer không thể chống chụp bằng thiết bị ngoài. Giá trị của viewer là giảm tải bản gốc tự do và tạo audit cho phiên mở.</div>
+    </section>
+
+    <section class="slide" data-title="Testing">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 18 · Kiểm thử</div>
+      <div class="content">
+        <p class="kicker">Chiến lược kiểm thử</p>
+        <h2>Kiểm thử theo nhiều tầng để tránh lỗi chỉ xuất hiện khi tích hợp.</h2>
+        <div class="grid g4">
+          <div class="card"><h3>Static</h3><p>ESLint phát hiện lỗi cú pháp và quy tắc React/TypeScript.</p></div>
+          <div class="card"><h3>Build</h3><p>Next production build kiểm tra compile và route.</p></div>
+          <div class="card"><h3>API</h3><p>Playwright request kiểm tra auth, token, vault, approval, audit.</p></div>
+          <div class="card"><h3>E2E</h3><p>Chromium kiểm tra UI, account menu và các luồng người dùng.</p></div>
+        </div>
+        <div class="code" style="margin-top:22px">npm run lint
+npm run build
+npm run test:e2e</div>
+      </div>
+      <div class="notes">Đây là phần rất đúng môn Kỹ thuật phần mềm. Nhấn mạnh hệ thống có ma trận test case TC-01 đến TC-10 và truy vết yêu cầu sang test case.</div>
+    </section>
+
+    <section class="slide" data-title="Deployment">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 19 · Triển khai</div>
+      <div class="content">
+        <p class="kicker">Local + Online</p>
+        <h2>Demo có hai phương án để giảm rủi ro.</h2>
+        <div class="grid g2">
+          <div class="card yellow"><h3>Local demo</h3><ul class="clean"><li>Chạy production trên máy cá nhân.</li><li>Có thể vẫn dùng Cloudflare R2.</li><li>Phù hợp khi Railway gặp sự cố.</li></ul></div>
+          <div class="card blue"><h3>Railway + R2</h3><ul class="clean"><li>Railway chạy Docker/Next standalone.</li><li>Volume lưu SQLite tại <code>/app/data</code>.</li><li>R2 lưu ciphertext qua S3-compatible API.</li></ul></div>
+        </div>
+        <div class="code" style="margin-top:22px">GET /api/health
+{
+  "ok": true,
+  "database": "ready",
+  "storageProvider": "r2"
+}</div>
+      </div>
+      <div class="notes">Nói thêm bài học triển khai: online không chỉ là push code, mà còn biến môi trường, secret, volume, quyền ghi runtime và healthcheck.</div>
+    </section>
+
+    <section class="slide" data-title="Demo script">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 20 · Kịch bản demo</div>
+      <div class="content">
+        <p class="kicker">Chuẩn bị bảo vệ</p>
+        <h2>Kịch bản demo 3 ví: A, B và C.</h2>
+        <div class="flow">
+          <div class="card step red"><div class="num small">A</div><h3>Upload file</h3><p>A kết nối ví, upload file, bật chính sách cần approval.</p></div>
+          <div class="card step yellow"><div class="num small">C</div><h3>Tạo yêu cầu</h3><p>C muốn mở file nhưng chưa đủ quyền, tạo approval request.</p></div>
+          <div class="card step blue"><div class="num small">A+B</div><h3>Cùng duyệt</h3><p>A duyệt chưa đủ, B duyệt thì hệ thống tạo approval token.</p></div>
+          <div class="card step red"><div class="num small">C</div><h3>Mở viewer</h3><p>C dùng token hợp lệ, lấy ciphertext và giải mã trong viewer.</p></div>
+        </div>
+      </div>
+      <div class="notes">Đây là script demo nên tập luyện trước. Nếu có lỗi online, chuyển sang local nhưng vẫn giải thích R2 có thể hoạt động cùng local. Không cần demo tất cả chức năng, chỉ demo luồng nổi bật nhất.</div>
+    </section>
+
+    <section class="slide" data-title="Evaluation">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 21 · Đánh giá</div>
+      <div class="content">
+        <p class="kicker">Kết quả đạt được</p>
+        <h2>Đề tài đã vượt mức “mã hóa / giải mã” đơn lẻ.</h2>
+        <div class="grid g3">
+          <div class="card red"><h3>Có hệ thống</h3><p>Auth, file, token, vault, approval, audit, dashboard, viewer.</p></div>
+          <div class="card yellow"><h3>Có kiểm thử</h3><p>Lint, build, E2E và test theo yêu cầu chức năng.</p></div>
+          <div class="card blue"><h3>Có triển khai</h3><p>Local, Docker, Railway volume, Cloudflare R2 và healthcheck.</p></div>
+        </div>
+        <div class="card" style="margin-top:22px"><b>Luận điểm bảo vệ:</b> hệ thống không tuyên bố ngăn copy tuyệt đối; mục tiêu là làm quyền truy cập có chủ đích, có thể thu hồi, có audit và khó bị lạm dụng hơn gửi file gốc.</div>
+      </div>
+      <div class="notes">Đây là câu trả lời nếu thầy hỏi: người ta chụp màn hình thì sao? Trả lời trung thực: không thể chống tuyệt đối, nhưng có thể watermark, audit phiên xem và quản lý token để giảm rủi ro.</div>
+    </section>
+
+    <section class="slide" data-title="Risks">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 22 · Rủi ro</div>
+      <div class="content">
+        <p class="kicker">Hạn chế và rủi ro kỹ thuật</p>
+        <h2>Nhìn thẳng vào phần chưa hoàn hảo làm báo cáo đáng tin hơn.</h2>
+        <table class="table">
+          <thead><tr><th>Rủi ro</th><th>Ảnh hưởng</th><th>Giảm thiểu</th></tr></thead>
+          <tbody>
+            <tr><td>Chụp lại nội dung</td><td>Tài liệu vẫn có thể bị sao chép ngoài hệ thống.</td><td>Watermark theo ví, audit phiên xem, điều khoản sử dụng.</td></tr>
+            <tr><td>SQLite một instance</td><td>Chưa phù hợp scale nhiều instance.</td><td>Chuyển PostgreSQL khi triển khai thật.</td></tr>
+            <tr><td>Mất volume</td><td>Mất metadata và lịch sử quyền.</td><td>Sao lưu SQLite định kỳ, backup trước demo.</td></tr>
+            <tr><td>Lộ R2 key</td><td>Storage có thể bị truy cập trái phép.</td><td>Xoay khóa, giới hạn quyền bucket, không commit secret.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notes">Đừng né hạn chế. Mục tiêu là cho thấy nhóm hiểu trade-off. Với protected viewer, không thể chống camera ngoài, nhưng vẫn tốt hơn tải file gốc vì có token, thời hạn và audit.</div>
+    </section>
+
+    <section class="slide" data-title="Roadmap">
+      <div class="brand"><img src="../report_latex/images/logo.jpg" alt="" /> 23 · Hướng phát triển</div>
+      <div class="content">
+        <p class="kicker">Roadmap</p>
+        <h2>Từ prototype môn học tới hệ thống có “moat” kỹ thuật.</h2>
+        <div class="grid g4">
+          <div class="card red"><h3>Ngắn hạn</h3><p>Watermark cá nhân hóa, notification, viewer tốt hơn cho PDF/video/notebook.</p></div>
+          <div class="card yellow"><h3>Ổn định</h3><p>PostgreSQL, backup, quản trị secret, dashboard audit dễ hiểu hơn.</p></div>
+          <div class="card blue"><h3>Nâng cao</h3><p>Merkle audit receipt để tạo biên nhận chia sẻ bất biến.</p></div>
+          <div class="card"><h3>Nghiên cứu</h3><p>Zero-knowledge permission proof và time-locked encryption.</p></div>
+        </div>
+      </div>
+      <div class="notes">Nhắc lại ý tưởng đã thảo luận: không cần nhồi AI nếu chưa tạo giá trị. Moat tốt hơn là audit receipt, ZK proof và time-locked encryption.</div>
+    </section>
+
+    <section class="slide" data-title="Closing">
+      <div class="ribbon"></div>
+      <div class="content center">
+        <p class="kicker">Kết luận</p>
+        <h1>WEB3demo</h1>
+        <p class="lede">Một prototype thể hiện đầy đủ quy trình kỹ thuật phần mềm: yêu cầu, thiết kế, cài đặt, kiểm thử, triển khai và đánh giá.</p>
+        <div class="divider"></div>
+        <div class="grid g3" style="width:100%; max-width:1050px">
+          <div class="card red"><h3>Privacy by design</h3><p>Client-side encryption, server không giữ plaintext.</p></div>
+          <div class="card yellow"><h3>Controlled access</h3><p>Token, revoke, approval threshold.</p></div>
+          <div class="card blue"><h3>Traceable lifecycle</h3><p>Audit trail, dashboard, healthcheck.</p></div>
+        </div>
+      </div>
+      <div class="notes">Kết thúc bằng ba ý: privacy, control, traceability. Cảm ơn giảng viên và sẵn sàng demo hoặc trả lời câu hỏi.</div>
+    </section>
+  </main>
+
+  <div class="hint">← → / Space để chuyển slide · F fullscreen · N xem ghi chú</div>
+  <div class="page" id="page"></div>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    const page = document.getElementById('page');
+    const topline = document.getElementById('topline');
+    let index = 0;
+    function render() {
+      slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+      page.textContent = `${String(index + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+      topline.style.setProperty('--progress', (index + 1) / slides.length);
+      location.hash = `/${index + 1}`;
+    }
+    function go(delta) { index = Math.max(0, Math.min(slides.length - 1, index + delta)); render(); }
+    function notes() {
+      const text = slides[index].querySelector('.notes')?.textContent || 'Không có ghi chú cho slide này.';
+      const box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);width:min(900px,86vw);max-height:42vh;overflow:auto;padding:24px 28px;border-radius:24px;background:#181613;color:#fff8e9;z-index:99;box-shadow:0 20px 80px rgba(0,0,0,.35);font:20px/1.55 Inter,Segoe UI,sans-serif';
+      box.textContent = text;
+      box.onclick = () => box.remove();
+      document.body.appendChild(box);
+      setTimeout(() => box.remove(), 11000);
+    }
+    document.addEventListener('keydown', (event) => {
+      if (['ArrowRight', 'PageDown', ' '].includes(event.key)) go(1);
+      if (['ArrowLeft', 'PageUp'].includes(event.key)) go(-1);
+      if (event.key === 'Home') { index = 0; render(); }
+      if (event.key === 'End') { index = slides.length - 1; render(); }
+      if (event.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+      if (event.key.toLowerCase() === 'n') notes();
+    });
+    const match = location.hash.match(/\/(\d+)/);
+    if (match) index = Math.max(0, Math.min(slides.length - 1, Number(match[1]) - 1));
+    render();
+  </script>
+</body>
+</html>
