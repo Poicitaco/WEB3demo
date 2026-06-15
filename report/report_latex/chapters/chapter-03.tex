@@ -1,9 +1,11 @@
 \chapter*{CHƯƠNG 3: PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG}
+\phantomsection
 \addcontentsline{toc}{chapter}{CHƯƠNG 3: PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG}
 
 Chương này trình bày thiết kế hệ thống \projectname{} ở mức kiến trúc, dữ liệu, API và luồng xử lý. Mục tiêu của chương là cho thấy hệ thống được thiết kế như một phần mềm có cấu trúc, không phải chỉ là một trang web upload file đơn giản.
 
 \section*{3.1. Kiến trúc tổng quan}
+\phantomsection
 \addcontentsline{toc}{section}{3.1. Kiến trúc tổng quan}
 
 Hệ thống được chia thành ba vùng chính: trình duyệt người dùng, ứng dụng Next.js và tầng lưu trữ. Trình duyệt chịu trách nhiệm tương tác ví và mã hóa/giải mã. Backend chịu trách nhiệm xác thực, phân quyền, quản lý metadata và audit. Storage chỉ lưu ciphertext.
@@ -25,6 +27,7 @@ Cách phân tách này có các ưu điểm:
 \end{itemize}
 
 \section*{3.2. Thiết kế module}
+\phantomsection
 \addcontentsline{toc}{section}{3.2. Thiết kế module}
 
 \begin{table}[H]
@@ -46,6 +49,7 @@ UI module & Dashboard, upload wizard, downloader, viewer và thông báo. \\ \hl
 \end{table}
 
 \section*{3.3. Thiết kế cơ sở dữ liệu}
+\phantomsection
 \addcontentsline{toc}{section}{3.3. Thiết kế cơ sở dữ liệu}
 
 Hệ thống sử dụng SQLite cho metadata. Dữ liệu file thực tế không lưu trong database mà lưu ở storage dưới dạng ciphertext, còn database lưu cid và thông tin quyền.
@@ -81,6 +85,7 @@ Một số quan hệ quan trọng:
 \end{itemize}
 
 \section*{3.4. Thiết kế API}
+\phantomsection
 \addcontentsline{toc}{section}{3.4. Thiết kế API}
 
 \small
@@ -105,6 +110,7 @@ GET & \seqsplit{/api/health} & Kiểm tra database và provider storage. \\ \hli
 \normalsize
 
 \section*{3.5. Thiết kế luồng upload và chia sẻ}
+\phantomsection
 \addcontentsline{toc}{section}{3.5. Thiết kế luồng upload và chia sẻ}
 
 Luồng upload gồm các bước:
@@ -122,6 +128,7 @@ Luồng upload gồm các bước:
 Điểm quan trọng là file rõ chỉ tồn tại tại trình duyệt. Backend không nhận file gốc trong thiết kế chủ đích.
 
 \section*{3.6. Thiết kế luồng phê duyệt A+B cho C}
+\phantomsection
 \addcontentsline{toc}{section}{3.6. Thiết kế luồng phê duyệt A+B cho C}
 
 Luồng phê duyệt được thiết kế để minh họa kiểm soát truy cập nhiều người. Hình \ref{fig:approvalseq} mô tả trình tự chính.
@@ -143,6 +150,7 @@ Các quy tắc chính:
 \end{itemize}
 
 \section*{3.7. Thiết kế giao diện}
+\phantomsection
 \addcontentsline{toc}{section}{3.7. Thiết kế giao diện}
 
 Giao diện gồm bốn màn hình chính: giới thiệu, upload, dashboard và viewer. Các màn hình dùng chung hệ nhận diện, chuyển động và logo của dự án.

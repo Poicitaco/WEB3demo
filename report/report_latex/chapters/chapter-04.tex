@@ -1,9 +1,11 @@
 \chapter*{CHƯƠNG 4: CÀI ĐẶT HỆ THỐNG}
+\phantomsection
 \addcontentsline{toc}{chapter}{CHƯƠNG 4: CÀI ĐẶT HỆ THỐNG}
 
 Chương này mô tả cách các thiết kế ở chương trước được hiện thực trong mã nguồn. Nội dung tập trung vào các module quan trọng: xác thực ví, mã hóa, storage, token, approval, dashboard và triển khai.
 
 \section*{4.1. Môi trường và công nghệ}
+\phantomsection
 \addcontentsline{toc}{section}{4.1. Môi trường và công nghệ}
 
 \begin{table}[H]
@@ -25,6 +27,7 @@ Kiểm thử & ESLint, Next build, Playwright \\ \hline
 \end{table}
 
 \section*{4.2. Cài đặt xác thực ví}
+\phantomsection
 \addcontentsline{toc}{section}{4.2. Cài đặt xác thực ví}
 
 Xác thực ví được tách thành hai endpoint. Endpoint \code{/api/auth/start} sinh thông điệp cần ký. Endpoint \code{/api/auth/verify} nhận địa chỉ ví và chữ ký, sau đó dùng thư viện \code{ethers} để khôi phục địa chỉ ký. Nếu địa chỉ khôi phục trùng với địa chỉ gửi lên, server tạo session JWT và lưu trong cookie.
@@ -38,6 +41,7 @@ Cách cài đặt này giúp hệ thống:
 \end{itemize}
 
 \section*{4.3. Cài đặt lưu trữ metadata}
+\phantomsection
 \addcontentsline{toc}{section}{4.3. Cài đặt lưu trữ metadata}
 
 Module \code{src/lib/db.ts} chịu trách nhiệm mở SQLite database và chạy migration. Đường dẫn database lấy từ biến môi trường \code{DB\_PATH}. Khi chạy local, đường dẫn thường là \code{data/app.sqlite}. Khi chạy Railway, đường dẫn là \code{/app/data/app.sqlite} để dữ liệu nằm trong volume.
@@ -45,6 +49,7 @@ Module \code{src/lib/db.ts} chịu trách nhiệm mở SQLite database và chạ
 Migration được viết trực tiếp trong code để prototype dễ chạy. Khi database chưa có bảng, hệ thống tự tạo bảng. Khi phát triển thêm trường mới, code kiểm tra \code{PRAGMA table\_info} và thêm cột còn thiếu. Cách này phù hợp với phạm vi môn học vì giảm bước cấu hình thủ công.
 
 \section*{4.4. Cài đặt storage provider}
+\phantomsection
 \addcontentsline{toc}{section}{4.4. Cài đặt storage provider}
 
 Module \code{src/lib/storage.ts} cung cấp cùng một interface cho hai provider:
@@ -59,6 +64,7 @@ Provider được chọn bằng biến môi trường \code{STORAGE\_PROVIDER}. 
 Để tránh trùng object, cid được tạo bằng SHA-256 trên ciphertext. Vì cid sinh từ ciphertext, cùng một ciphertext sẽ cho cùng cid.
 
 \section*{4.5. Cài đặt upload và metadata file}
+\phantomsection
 \addcontentsline{toc}{section}{4.5. Cài đặt upload và metadata file}
 
 Khi client gửi metadata tới \code{/api/files}, backend kiểm tra:
@@ -75,6 +81,7 @@ Khi client gửi metadata tới \code{/api/files}, backend kiểm tra:
 Sau khi hợp lệ, hệ thống lưu bản ghi vào bảng files, tạo token, lưu share nếu có và ghi audit event.
 
 \section*{4.6. Cài đặt phê duyệt ngưỡng}
+\phantomsection
 \addcontentsline{toc}{section}{4.6. Cài đặt phê duyệt ngưỡng}
 
 Phê duyệt ngưỡng được hiện thực bằng nhóm bảng threshold file, threshold share, approval request và approval contribution. Khi người nhận tạo yêu cầu, hệ thống lưu trạng thái \code{pending}. Khi người duyệt gửi approval, API kiểm tra tư cách thành viên và lưu contribution.
@@ -89,17 +96,38 @@ Khi số contribution hợp lệ đạt ngưỡng, hệ thống:
 \end{enumerate}
 
 \section*{4.7. Cài đặt dashboard và protected viewer}
+\phantomsection
 \addcontentsline{toc}{section}{4.7. Cài đặt dashboard và protected viewer}
 
 Dashboard tập hợp nhiều chức năng vào một workspace: tài liệu đã gửi, tài liệu nhận, kho nhóm, yêu cầu phê duyệt, token và phiên bản. Các component được tách theo từng nhóm chức năng để giảm phụ thuộc và thuận tiện bảo trì.
 
 Protected viewer nằm trong luồng download. Viewer chỉ hiển thị nội dung sau khi token hợp lệ và client giải mã thành công. Với một số loại file như ảnh, video hoặc notebook, viewer có thể hiển thị theo kiểu tương ứng; với loại chưa hỗ trợ, hệ thống vẫn có thể cung cấp trạng thái rõ ràng cho người dùng.
 
+\Needspace{9\baselineskip}
 \section*{4.8. Cài đặt triển khai}
+\phantomsection
 \addcontentsline{toc}{section}{4.8. Cài đặt triển khai}
 
 Repository có \code{Dockerfile} và \code{railway.json}. Dockerfile build Next.js ở chế độ standalone. Railway dùng healthcheck \code{/api/health}. SQLite được cấu hình tại \code{/app/data/app.sqlite}. Cloudflare R2 được cấu hình qua biến môi trường.
 
 Một lỗi thực tế khi triển khai là quyền ghi vào Railway volume. Vì Railway mount volume ở runtime, container cần đảm bảo tiến trình có quyền ghi vào \code{/app/data}. Dự án đã điều chỉnh Dockerfile để tránh lỗi SQLite không ghi được vào volume trong demo.
+
+\textbf{Quy trình triển khai} được thực hiện theo các bước:
+\begin{enumerate}
+  \item Mã nguồn được đẩy lên nhánh \code{main} của GitHub.
+  \item Railway nhận webhook, build Docker image và khởi động container mới.
+  \item Container đọc biến môi trường, mở SQLite trong volume và kết nối tới R2.
+  \item Railway gọi \code{/api/health}; phiên bản mới chỉ được xem là sẵn sàng khi database và storage provider đều hoạt động.
+  \item Nhóm kiểm tra đăng nhập ví, upload ciphertext và mở dashboard trước khi dùng bản triển khai để demo.
+\end{enumerate}
+
+\textbf{Phân tách dữ liệu khi vận hành:}
+\begin{itemize}
+  \item Railway volume lưu metadata, token, yêu cầu phê duyệt và audit event.
+  \item Cloudflare R2 chỉ lưu ciphertext, không lưu bản rõ của tài liệu.
+  \item Trình duyệt giữ khóa giải mã hoặc khôi phục khóa theo chính sách quyền; server không chủ động giải mã nội dung.
+\end{itemize}
+
+Cách phân tách này giúp việc thay storage provider không làm thay đổi logic nghiệp vụ. Tuy nhiên, SQLite và R2 phải được sao lưu theo hai chính sách riêng. Nếu metadata bị mất thì ciphertext vẫn tồn tại nhưng hệ thống không còn thông tin để xác định chủ sở hữu, quyền truy cập và lịch sử audit.
 
 \clearpage

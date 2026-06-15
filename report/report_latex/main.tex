@@ -27,6 +27,7 @@
 \usepackage{pdflscape}
 \usepackage{xurl}
 \usepackage{seqsplit}
+\usepackage{needspace}
 
 \graphicspath{{images/}{diagrams/}}
 \setlength{\parindent}{1cm}
@@ -60,7 +61,9 @@
   breaklines=true,
   frame=single,
   columns=fullflexible,
-  keepspaces=true
+  keepspaces=true,
+  aboveskip=8pt,
+  belowskip=8pt
 }
 
 \newcommand{\projectname}{WEB3demo}
