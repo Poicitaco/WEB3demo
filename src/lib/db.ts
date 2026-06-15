@@ -10,9 +10,12 @@ function ensureDir(dir: string) {
 
 export function getDb() {
   if (db) return db;
-  const dataDir = path.join(process.cwd(), 'data');
+  const configuredPath = process.env.DB_PATH?.trim();
+  const dbPath = configuredPath
+    ? (path.isAbsolute(configuredPath) ? configuredPath : path.join(process.cwd(), configuredPath))
+    : path.join(process.cwd(), 'data', 'app.sqlite');
+  const dataDir = path.dirname(dbPath);
   ensureDir(dataDir);
-  const dbPath = path.join(dataDir, 'app.sqlite');
   db = new Database(dbPath);
   migrate(db);
   return db;

@@ -1,0 +1,11 @@
+.git
+.next
+.codex
+node_modules
+data
+storage
+test-results
+playwright-report
+report
+.env*
+npm-debug.log*

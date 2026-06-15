@@ -144,6 +144,8 @@ Detailed UI integration guidance is available in
 [`docs/UI_HANDOFF.md`](docs/UI_HANDOFF.md). The final classroom presentation flow
 is documented in [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md). Current milestone
 status is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
+Container and Cloudflare R2 deployment steps are in
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 The software-engineering architecture and requirements are documented in
 [`docs/SOFTWARE_ENGINEERING.md`](docs/SOFTWARE_ENGINEERING.md), with the verification
 strategy in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).

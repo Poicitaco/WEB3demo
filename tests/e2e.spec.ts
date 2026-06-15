@@ -49,6 +49,13 @@ test('download actions require an authenticated wallet session', async ({ page }
   await expect(page.getByRole('button', { name: /Download & Decrypt/ })).toBeDisabled();
 });
 
+test('health endpoint reports database and storage readiness', async ({ request }) => {
+  const response = await request.get('/api/health');
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(body).toMatchObject({ ok: true, database: 'ready', storageProvider: 'local' });
+});
+
 test('visible buttons and links expose readable labels on public pages', async ({ page }) => {
   for (const path of ['/', '/upload', '/download', '/dashboard']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
